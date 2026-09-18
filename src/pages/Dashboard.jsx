@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import TodayStats from '../components/dashboard/TodayStats'
 import WeeklyStats from '../components/dashboard/WeeklyStats'
+import MonthlyStats from '../components/dashboard/MonthlyStats'
+import YearlyStats from '../components/dashboard/YearlyStats'
 
 const SESSIONS_KEY = 'productivity_timer_sessions_v1'
 
@@ -70,17 +72,9 @@ export default function Dashboard() {
 
       {tab === 'today' && <TodayStats sessions={todaySessions} dateLabel={`Today: ${dateLabel}`} />}
       {tab === 'weekly' && <WeeklyStats sessions={sessions} now={now} />}
-      {tab === 'monthly' && <DashboardFutureTab title="Monthly" />}
-      {tab === 'yearly' && <DashboardFutureTab title="Yearly" />}
+      {tab === 'monthly' && <MonthlyStats sessions={sessions} now={now} />}
+      {tab === 'yearly' && <YearlyStats sessions={sessions} now={now} />}
     </div>
   )
 }
 
-function DashboardFutureTab({ title }) {
-  return (
-    <section className="gloss-panel w-full rounded-3xl p-6 text-center sm:p-8">
-      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-      <p className="mt-2 text-sm text-neutral-500">This dashboard period will be built after Weekly is tested and approved.</p>
-    </section>
-  )
-}
