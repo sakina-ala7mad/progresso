@@ -51,3 +51,7 @@ Session shape follows the requested schema:
 3. A Pomodoro break never creates a history record.
 4. Mode switching is blocked while a timer is active so an accidental click cannot corrupt elapsed time.
 5. Timer timing is based on wall-clock timestamps rather than assuming `setInterval` fires exactly on schedule.
+
+## Tag deletion
+
+Tags can now be deleted from the Timer page using the small red `×` control that appears when hovering a tag. Deleting a tag does not modify existing session history. The currently selected tag is automatically switched to another remaining tag. At least one tag must remain.

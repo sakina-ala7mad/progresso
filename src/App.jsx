@@ -518,6 +518,18 @@ function App() {
     setEditorOpen(true)
   }
 
+  function deleteTag(tag) {
+    if (tagsRef.current.length <= 1) {
+      window.alert('You need to keep at least one tag.')
+      return
+    }
+    const confirmed = window.confirm(`Delete the tag \"${tag.name}\"? Existing history will stay unchanged.`)
+    if (!confirmed) return
+    const remaining = tagsRef.current.filter((item) => item.id !== tag.id)
+    setTags(remaining)
+    if (selectedTagRef.current === tag.id) setSelectedTagId(remaining[0].id)
+  }
+
   function openEditTag(tag) {
     setEditingId(tag.id)
     setDraftName(tag.name)
@@ -668,7 +680,7 @@ function App() {
                   <input aria-label="Countdown time" value={running || paused ? formatTime(seconds) : timeInput} onChange={(e) => handleCountdownInput(e.target.value)} className="w-full bg-transparent text-center text-5xl font-medium tracking-[0.05em] outline-none sm:text-6xl" style={{ color: displayColor }} disabled={running || paused} inputMode="numeric" />
                   <p className="mt-1 text-xs text-neutral-400">hh:mm:ss · directly editable before starting</p>
                 </div>
-                <TimerTagRow tags={tags} selectedTagId={selectedTagId} onSelect={setSelectedTagId} onEdit={openEditTag} onNew={openNewTag} />
+                <TimerTagRow tags={tags} selectedTagId={selectedTagId} onSelect={setSelectedTagId} onEdit={openEditTag} onDelete={deleteTag} onNew={openNewTag} />
               </div>
             )}
 
@@ -678,7 +690,7 @@ function App() {
                   <div className="text-5xl font-medium tracking-[0.05em] sm:text-6xl" style={{ color: displayColor }}>{formatTime(seconds)}</div>
                   <p className="mt-1 text-xs text-neutral-400">count-up timer</p>
                 </div>
-                <TimerTagRow tags={tags} selectedTagId={selectedTagId} onSelect={setSelectedTagId} onEdit={openEditTag} onNew={openNewTag} />
+                <TimerTagRow tags={tags} selectedTagId={selectedTagId} onSelect={setSelectedTagId} onEdit={openEditTag} onDelete={deleteTag} onNew={openNewTag} />
               </div>
             )}
 
@@ -698,7 +710,7 @@ function App() {
                   <div className="mt-1 text-sm font-semibold text-neutral-500">{pomodoroIndex} / {pomodoroTotal}</div>
                   {pomodoroPhase === 'break' && <div className="mt-2 text-xs font-semibold text-amber-700">Break timer is waiting — it will not start automatically.</div>}
                 </div>
-                <TimerTagRow tags={tags} selectedTagId={selectedTagId} onSelect={setSelectedTagId} onEdit={openEditTag} onNew={openNewTag} />
+                <TimerTagRow tags={tags} selectedTagId={selectedTagId} onSelect={setSelectedTagId} onEdit={openEditTag} onDelete={deleteTag} onNew={openNewTag} />
               </div>
             )}
 
@@ -759,8 +771,8 @@ function HistoryPage({ history, onRefresh }) {
   )
 }
 
-function TimerTagRow({ tags, selectedTagId, onSelect, onEdit, onNew }) {
-  return <div><div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-neutral-400">Tag</span><button onClick={onNew} className="text-xs font-bold text-violet-600 hover:text-violet-800">+ New tag</button></div><div className="flex flex-wrap justify-center gap-2">{tags.map((tag) => <div key={tag.id} className="group relative"><button onClick={() => onSelect(tag.id)} className={`tag-chip rounded-full border px-3 py-1.5 text-xs font-semibold ${selectedTagId === tag.id ? 'border-black/20 ring-2 ring-violet-200' : 'border-black/10'}`} style={{ backgroundColor: tag.color }}>{tag.name}</button><button aria-label={`Edit ${tag.name}`} onClick={() => onEdit(tag)} className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full border border-white bg-neutral-800 text-[9px] text-white group-hover:flex">✎</button></div>)}</div></div>
+function TimerTagRow({ tags, selectedTagId, onSelect, onEdit, onDelete, onNew }) {
+  return <div><div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-neutral-400">Tag</span><button onClick={onNew} className="text-xs font-bold text-violet-600 hover:text-violet-800">+ New tag</button></div><div className="flex flex-wrap justify-center gap-2">{tags.map((tag) => <div key={tag.id} className="group relative"><button onClick={() => onSelect(tag.id)} className={`tag-chip rounded-full border px-3 py-1.5 text-xs font-semibold ${selectedTagId === tag.id ? 'border-black/20 ring-2 ring-violet-200' : 'border-black/10'}`} style={{ backgroundColor: tag.color }}>{tag.name}</button><div className="absolute -right-1.5 -top-1.5 hidden gap-0.5 group-hover:flex"><button aria-label={`Edit ${tag.name}`} onClick={() => onEdit(tag)} className="flex h-4 w-4 items-center justify-center rounded-full border border-white bg-neutral-800 text-[9px] text-white">✎</button><button aria-label={`Delete ${tag.name}`} onClick={() => onDelete(tag)} className="flex h-4 w-4 items-center justify-center rounded-full border border-white bg-red-500 text-[9px] text-white">×</button></div></div>)}</div></div>
 }
 
 function TimeField({ label, value, onChange, disabled }) {
