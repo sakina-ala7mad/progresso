@@ -14,7 +14,7 @@ function formatDuration(minutes) {
 }
 
 function formatTime(date) {
-  return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return new Date(date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
 function getSessionTimes(session) {
