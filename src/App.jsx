@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import Dashboard from './pages/Dashboard'
 
 const TAGS_KEY = 'productivity_timer_tags_v1'
 const SESSIONS_KEY = 'productivity_timer_sessions_v1'
@@ -660,13 +661,16 @@ function App() {
           <div className="inline-flex rounded-xl border border-violet-200/80 bg-white/75 px-4 py-2 text-sm font-bold tracking-tight shadow-sm backdrop-blur">
             Time Tracker
           </div>
-          <div className="mt-3 flex justify-center gap-2">
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <button className={`mode-button ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>Dashboard</button>
             <button className={`mode-button ${page === 'timer' ? 'active' : ''}`} onClick={() => setPage('timer')}>Timer</button>
             <button className={`mode-button ${page === 'history' ? 'active' : ''}`} onClick={() => { setPage('history'); refreshHistory() }}>History</button>
           </div>
         </header>
 
-        {page === 'timer' ? (
+        {page === 'dashboard' ? (
+          <Dashboard />
+        ) : page === 'timer' ? (
           <section className="gloss-panel w-full max-w-xl rounded-3xl p-5 sm:p-7">
             <div className="mb-5 flex w-full gap-2 rounded-xl bg-neutral-100/80 p-1">
               <button className={`mode-button ${mode === 'countdown' ? 'active' : ''}`} onClick={() => switchMode('countdown')}>Countdown</button>

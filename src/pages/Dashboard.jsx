@@ -1,51 +1,52 @@
-import React, { useState } from "react";
-import TodayStats from "../components/dashboard/TodayStats";
-import WeeklyStats from "../components/dashboard/WeeklyStats";
-import MonthlyStats from "../components/dashboard/MonthlyStats";
+import React, { useEffect, useMemo, useState } from 'react'
+import TodayStats from '../components/dashboard/TodayStats'
+
+const SESSIONS_KEY = 'productivity_timer_sessions_v1'
+
+function readSessions() {
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function sameLocalDay(timestamp, reference = new Date()) {
+  const date = new Date(timestamp)
+  return date.getFullYear() === reference.getFullYear()
+    && date.getMonth() === reference.getMonth()
+    && date.getDate() === reference.getDate()
+}
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("day");
+  const [sessions, setSessions] = useState(readSessions)
+  const [now, setNow] = useState(() => new Date())
 
-  const tabs = [
-    { id: "day", label: "Day", component: TodayStats, bgColor: "bg-yellow-50" },
-    { id: "week", label: "Week", component: WeeklyStats, bgColor: "bg-pink-50" },
-    { id: "month", label: "Month", component: MonthlyStats, bgColor: "bg-blue-50" }
-  ];
+  useEffect(() => {
+    const refresh = () => {
+      setSessions(readSessions())
+      setNow(new Date())
+    }
+    window.addEventListener('storage', refresh)
+    const timer = window.setInterval(refresh, 1000)
+    return () => {
+      window.removeEventListener('storage', refresh)
+      window.clearInterval(timer)
+    }
+  }, [])
 
-  const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component;
+  const todaySessions = useMemo(
+    () => sessions.filter((session) => sameLocalDay(session.timestamp, now)).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
+    [sessions, now],
+  )
+
+  const dateLabel = now.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' })
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-3xl mx-auto px-4">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Focus Analytics</h1>
-          <p className="text-gray-600">Track your productivity and focus sessions</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white rounded-xl p-1 shadow-lg">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? "bg-blue-500 text-white shadow-md"
-                    : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Active Tab Content */}
-        <div className={`${tabs.find(tab => tab.id === activeTab)?.bgColor} p-6 rounded-2xl`}>
-          {ActiveComponent && <ActiveComponent />}
-        </div>
-      </div>
+    <div className="w-full max-w-xl">
+      <TodayStats sessions={todaySessions} dateLabel={`Today: ${dateLabel}`} />
     </div>
-  );
+  )
 }
