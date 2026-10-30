@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #111111;
+  background: #faf9fc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #faf9fc; }
+button, input { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+
+.gloss-panel {
+  background: linear-gradient(145deg, rgba(255,255,255,.97), rgba(247,243,255,.94));
+  border: 1px solid rgba(139, 92, 246, .16);
+  box-shadow: 0 20px 60px rgba(107, 76, 171, .14), 0 4px 18px rgba(107, 76, 171, .08);
+  backdrop-filter: blur(16px);
+}
+
+.soft-button {
+  border: 1px solid rgba(0,0,0,.14);
+  background: #fff;
+  color: #171717;
+  box-shadow: 0 2px 7px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,.9);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.soft-button:hover { box-shadow: 0 4px 12px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.9); }
+.soft-button:active { transform: translateY(1px); }
+
+.mode-button {
+  min-width: 92px;
+  border-radius: 9px;
+  border: 1px solid #d7d2df;
+  background: #f3f0f5;
+  color: #303030;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.mode-button.active {
+  background: #e7ddff;
+  border-color: #a979ff;
+  color: #4d267e;
+  box-shadow: inset 0 0 0 1px rgba(139,92,246,.15);
+}
+
+.tag-chip { transition: transform .12s ease, box-shadow .12s ease; }
+.tag-chip:hover { transform: translateY(-1px); }
+
+@media (max-width: 480px) {
+  .mode-button { min-width: 0; flex: 1; padding-inline: 7px; }
+}
+
+.habit-card {
+  cursor: pointer;
+  border-radius: 20px;
+  border: 1px solid rgba(139,92,246,.16);
+  background: linear-gradient(145deg, rgba(255,255,255,.97), rgba(248,244,255,.94));
+  box-shadow: 0 12px 30px rgba(107,76,171,.10), 0 2px 10px rgba(107,76,171,.06);
+  padding: 16px;
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.habit-card:hover { transform: translateY(-1px); box-shadow: 0 16px 36px rgba(107,76,171,.13), 0 3px 12px rgba(107,76,171,.08); }
+.habit-card.habit-small { min-height: 150px; }
+.habit-card.habit-medium { min-height: 188px; }
+.habit-card.habit-big { min-height: 280px; }
+.habit-day {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #e5e5e5;
+  background: rgba(255,255,255,.85);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+  transition: transform .12s ease, background .12s ease;
+}
+.habit-day:hover { transform: scale(1.05); }
+.habit-day.today:not(.checked) { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139,92,246,.12); }
+.habit-day.checked { color: white; }
+.calendar-day { display:flex; min-height:38px; align-items:center; justify-content:center; border-radius:999px; border:1px solid #ececec; background:white; font-size:12px; font-weight:700; color:#777; }
+.calendar-day.today:not(.checked) { border-color:#8b5cf6; box-shadow:0 0 0 2px rgba(139,92,246,.12); }
+.calendar-day.checked { color:white; }
+@media (max-width: 640px) {
+  .habit-day { width: 25px; height:25px; font-size:11px; }
+  .habit-card { padding:14px; }
+}
+
+
+/* Friendly timer-completion celebration */
+.celebration-backdrop { background: rgba(55, 38, 77, .38); backdrop-filter: blur(8px); animation: celebration-fade-in .22s ease-out both; }
+.celebration-card { background: radial-gradient(circle at top, #fffaff 0%, #ffffff 54%, #faf6ff 100%); animation: celebration-pop .42s cubic-bezier(.2,.85,.25,1.2) both; }
+.celebration-emoji { animation: celebration-bob 2.4s ease-in-out infinite; box-shadow: 0 8px 28px rgba(167,139,250,.22); }
+.celebration-sparkle { position:absolute; pointer-events:none; color:#c084fc; font-size:25px; animation: sparkle-drift 2.8s ease-in-out infinite; }
+.sparkle-one { left: 12%; top: 18%; color:#f9a8d4; }
+.sparkle-two { right: 13%; top: 25%; color:#a78bfa; animation-delay:.45s; }
+.sparkle-three { right: 17%; bottom: 25%; color:#fbbf24; animation-delay:.9s; }
+@keyframes celebration-fade-in { from { opacity:0; } to { opacity:1; } }
+@keyframes celebration-pop { from { opacity:0; transform:translateY(12px) scale(.94); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes celebration-bob { 0%,100% { transform:translateY(0) rotate(-4deg); } 50% { transform:translateY(-5px) rotate(4deg); } }
+@keyframes sparkle-drift { 0%,100% { transform:translateY(0) rotate(0deg); opacity:.55; } 50% { transform:translateY(-8px) rotate(15deg); opacity:1; } }
+@media (prefers-reduced-motion: reduce) { .celebration-backdrop,.celebration-card,.celebration-emoji,.celebration-sparkle { animation:none; } }
