@@ -55,3 +55,66 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 480px) {
   .mode-button { min-width: 0; flex: 1; padding-inline: 7px; }
 }
+
+.habit-card {
+  cursor: pointer;
+  border-radius: 20px;
+  border: 1px solid rgba(139,92,246,.16);
+  background: linear-gradient(145deg, rgba(255,255,255,.97), rgba(248,244,255,.94));
+  box-shadow: 0 12px 30px rgba(107,76,171,.10), 0 2px 10px rgba(107,76,171,.06);
+  padding: 16px;
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.habit-card:hover { transform: translateY(-1px); box-shadow: 0 16px 36px rgba(107,76,171,.13), 0 3px 12px rgba(107,76,171,.08); }
+.habit-card.habit-small { min-height: 150px; }
+.habit-card.habit-medium { min-height: 188px; }
+.habit-card.habit-big { min-height: 280px; }
+.habit-day {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #e5e5e5;
+  background: rgba(255,255,255,.85);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+  transition: transform .12s ease, background .12s ease;
+}
+.habit-day:hover { transform: scale(1.05); }
+.habit-day.today:not(.checked) { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139,92,246,.12); }
+.habit-day.checked { color: white; }
+.calendar-day { display:flex; min-height:38px; align-items:center; justify-content:center; border-radius:999px; border:1px solid #ececec; background:white; font-size:12px; font-weight:700; color:#777; }
+.calendar-day.today:not(.checked) { border-color:#8b5cf6; box-shadow:0 0 0 2px rgba(139,92,246,.12); }
+.calendar-day.checked { color:white; }
+@media (max-width: 640px) {
+  .habit-day { width: 25px; height:25px; font-size:11px; }
+  .habit-card { padding:14px; }
+}
+
+
+/* Friendly timer-completion celebration */
+.celebration-backdrop { background: rgba(55, 38, 77, .38); backdrop-filter: blur(8px); animation: celebration-fade-in .22s ease-out both; }
+.celebration-card { background: radial-gradient(circle at top, #fffaff 0%, #ffffff 54%, #faf6ff 100%); animation: celebration-pop .42s cubic-bezier(.2,.85,.25,1.2) both; }
+.celebration-emoji { animation: celebration-bob 2.4s ease-in-out infinite; box-shadow: 0 8px 28px rgba(167,139,250,.22); }
+.celebration-sparkle { position:absolute; pointer-events:none; color:#c084fc; font-size:25px; animation: sparkle-drift 2.8s ease-in-out infinite; }
+.sparkle-one { left: 12%; top: 18%; color:#f9a8d4; }
+.sparkle-two { right: 13%; top: 25%; color:#a78bfa; animation-delay:.45s; }
+.sparkle-three { right: 17%; bottom: 25%; color:#fbbf24; animation-delay:.9s; }
+@keyframes celebration-fade-in { from { opacity:0; } to { opacity:1; } }
+@keyframes celebration-pop { from { opacity:0; transform:translateY(12px) scale(.94); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes celebration-bob { 0%,100% { transform:translateY(0) rotate(-4deg); } 50% { transform:translateY(-5px) rotate(4deg); } }
+@keyframes sparkle-drift { 0%,100% { transform:translateY(0) rotate(0deg); opacity:.55; } 50% { transform:translateY(-8px) rotate(15deg); opacity:1; } }
+@media (prefers-reduced-motion: reduce) { .celebration-backdrop,.celebration-card,.celebration-emoji,.celebration-sparkle { animation:none; } }
+
+/* Duration-based, increasingly vibrant celebration styles for Normal count-up sessions. */
+.celebration-card.tier-seed { background: radial-gradient(circle at top, #f0fdf4 0%, #ffffff 56%, #f5f3ff 100%); }
+.celebration-card.tier-blossom { background: radial-gradient(circle at top, #fdf2f8 0%, #ffffff 48%, #f5f3ff 100%); }
+.celebration-card.tier-rainbow { background: radial-gradient(circle at top left, #fce7f3 0%, #ede9fe 38%, #dbeafe 70%, #ffffff 100%); }
+.celebration-card.tier-gold { background: radial-gradient(circle at top, #fef3c7 0%, #fce7f3 42%, #ede9fe 75%, #ffffff 100%); border-color: #fcd34d; }
+.celebration-card.tier-fire { background: radial-gradient(circle at top left, #fed7aa 0%, #fbcfe8 38%, #ddd6fe 72%, #ffffff 100%); border-color: #fb923c; box-shadow: 0 24px 80px rgba(249,115,22,.25); }
+.celebration-card.tier-superstar { background: radial-gradient(circle at 10% 0%, #fde68a 0%, #fbcfe8 28%, #c4b5fd 58%, #bfdbfe 80%, #ffffff 100%); border-color: #f9a8d4; box-shadow: 0 28px 90px rgba(168,85,247,.28); }
+.celebration-card.tier-fire .celebration-emoji, .celebration-card.tier-superstar .celebration-emoji { box-shadow: 0 10px 35px rgba(249,115,22,.24); }

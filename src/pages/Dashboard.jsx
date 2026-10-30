@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState(readSessions)
   const [now, setNow] = useState(() => new Date())
   const [tab, setTab] = useState('today')
+  const [todayDate, setTodayDate] = useState(() => new Date())
 
   useEffect(() => {
     const refresh = () => {
@@ -43,12 +44,24 @@ export default function Dashboard() {
 
   const todaySessions = useMemo(
     () => sessions
-      .filter((session) => sameLocalDay(session.timestamp, now))
+      .filter((session) => sameLocalDay(session.timestamp, todayDate))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
-    [sessions, now],
+    [sessions, todayDate],
   )
 
-  const dateLabel = now.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' })
+  const dateLabel = todayDate.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' })
+  const isToday = sameLocalDay(todayDate, now)
+  const canGoForward = todayDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  function changeTodayDate(days) {
+    setTodayDate((current) => {
+      const next = new Date(current)
+      next.setDate(next.getDate() + days)
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      if (next > todayStart) return todayStart
+      return next
+    })
+  }
   const tabs = [
     ['today', 'Today'],
     ['weekly', 'Weekly'],
@@ -70,7 +83,17 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {tab === 'today' && <TodayStats sessions={todaySessions} dateLabel={`Today: ${dateLabel}`} />}
+      {tab === 'today' && (
+        <TodayStats
+          sessions={todaySessions}
+          dateLabel={isToday ? `Today: ${dateLabel}` : dateLabel}
+          isToday={isToday}
+          canGoForward={canGoForward}
+          onPreviousDay={() => changeTodayDate(-1)}
+          onNextDay={() => changeTodayDate(1)}
+          onGoToday={() => setTodayDate(new Date())}
+        />
+      )}
       {tab === 'weekly' && <WeeklyStats sessions={sessions} now={now} />}
       {tab === 'monthly' && <MonthlyStats sessions={sessions} now={now} />}
       {tab === 'yearly' && <YearlyStats sessions={sessions} now={now} />}

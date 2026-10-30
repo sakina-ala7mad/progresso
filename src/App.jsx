@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Dashboard from './pages/Dashboard'
+import Habits from './pages/Habits'
 
 const TAGS_KEY = 'productivity_timer_tags_v1'
 const SESSIONS_KEY = 'productivity_timer_sessions_v1'
@@ -68,14 +69,38 @@ function parseTimeInput(value) {
   return Math.floor(h) * 3600 + Math.floor(m) * 60 + Math.floor(s)
 }
 
+
+function getNormalCompletionInfo(elapsedSeconds) {
+  const seconds = Math.max(0, Math.floor(elapsedSeconds))
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  if (seconds < 10 * 60) return { title: 'You showed up! 🌱', message: `You gave ${formatDuration(minutes)} to something that matters. Every beginning counts — be proud that you started.`, emoji: '🌱', tone: 'tier-seed', durationLabel: formatDuration(minutes) }
+  if (seconds < 30 * 60) return { title: 'Look at you, building momentum!', message: `${formatDuration(minutes)} of focused effort is a real win. You made space for your goals, and that effort adds up. Keep that lovely momentum going!`, emoji: '🌷', tone: 'tier-blossom', durationLabel: formatDuration(minutes) }
+  if (seconds < 60 * 60) return { title: 'Half an hour of progress — amazing!', message: `You stayed with it for ${formatDuration(minutes)}. That is patience, commitment, and proof that you can keep showing up. Celebrate this little victory!`, emoji: '🌈', tone: 'tier-rainbow', durationLabel: formatDuration(minutes) }
+  if (seconds < 3 * 60 * 60) return { title: 'ONE HOUR OF REAL PROGRESS! ✨', message: `${formatDuration(minutes)} invested in your future! You pushed past the easy part and kept going. Take a breath, stand tall, and give yourself credit — you earned this.`, emoji: '🏆', tone: 'tier-gold', durationLabel: formatDuration(minutes) }
+  if (seconds < 5 * 60 * 60) return { title: 'INCREDIBLE DEDICATION! 🔥', message: `${formatDuration(minutes)} of effort is something to celebrate. You showed remarkable commitment to what matters to you. Stretch, hydrate, and feel proud of how far you came.`, emoji: '🔥', tone: 'tier-fire', durationLabel: formatDuration(minutes) }
+  return { title: 'ABSOLUTELY EXTRAORDINARY! 🌟', message: `${formatDuration(minutes)} is a huge investment of focus and heart. Your dedication is powerful — and rest is part of progress too. Celebrate what you accomplished, then give yourself a well-earned break.`, emoji: '🌟', tone: 'tier-superstar', durationLabel: formatDuration(minutes) }
+}
+
 function normalizeTags(tags) {
   return Array.isArray(tags) && tags.length ? tags : DEFAULT_TAGS
+}
+
+// One-time cleanup for older data: sessions under 5 minutes should not exist
+// in stored history, including sessions created before the 5-minute rule.
+function cleanStoredSessions() {
+  const sessions = readStorage(SESSIONS_KEY, [])
+  if (!Array.isArray(sessions)) return []
+  const cleaned = sessions.filter((session) => Number(session?.durationMinutes || 0) >= 5)
+  if (cleaned.length !== sessions.length) writeStorage(SESSIONS_KEY, cleaned)
+  return cleaned
 }
 
 function createSession({ tag, elapsedSeconds, timestamp = new Date().toISOString() }) {
   if (!tag || elapsedSeconds <= 0) return null
   const durationMinutes = Math.round((elapsedSeconds / 60) * 100) / 100
-  if (durationMinutes <= 0) return null
+  // Focus sessions shorter than 5 minutes are not counted or stored as sessions.
+  if (elapsedSeconds < 5 * 60) return null
   return {
     id: makeId('session'),
     tagName: tag.name,
@@ -88,7 +113,7 @@ function createSession({ tag, elapsedSeconds, timestamp = new Date().toISOString
 
 function appendSession(session) {
   if (!session) return
-  const sessions = readStorage(SESSIONS_KEY, [])
+  const sessions = cleanStoredSessions()
   writeStorage(SESSIONS_KEY, [...sessions, session])
 }
 
@@ -151,7 +176,8 @@ function App() {
   const [pomodoroIndex, setPomodoroIndex] = useState(0)
   const [pomodoroPhase, setPomodoroPhase] = useState('focus')
   const [pomodoroMessage, setPomodoroMessage] = useState('')
-  const [history, setHistory] = useState(() => readStorage(SESSIONS_KEY, []))
+  const [history, setHistory] = useState(() => cleanStoredSessions())
+  const [completionInfo, setCompletionInfo] = useState({ title: 'Timer finished!', message: 'You did it! Take a breath and enjoy your little win.', emoji: '🎉' })
 
   const intervalRef = useRef(null)
   const modeRef = useRef(mode)
@@ -172,6 +198,7 @@ function App() {
   const pomodoroBreakRef = useRef(pomodoroBreak)
   const pomodoroSessionsRef = useRef(pomodoroSessions)
   const timeInputRef = useRef(timeInput)
+  const alarmAudioRef = useRef(null)
 
   useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { secondsRef.current = seconds }, [seconds])
@@ -209,6 +236,71 @@ function App() {
   function getElapsedForCurrentRun() {
     const segment = segmentStartedAtRef.current ? (Date.now() - segmentStartedAtRef.current) / 1000 : 0
     return Math.max(0, accumulatedRef.current + segment)
+  }
+
+  function prepareCompletionSound() {
+    // Prime the actual HTML audio element directly from a user gesture. This is
+    // more reliable in Safari than relying on a separate Web Audio context.
+    const audio = alarmAudioRef.current
+    if (!audio) return Promise.resolve(false)
+    audio.loop = false
+    audio.volume = 0.62
+    try {
+      const started = audio.play()
+      if (!started || typeof started.then !== 'function') {
+        audio.pause()
+        audio.currentTime = 0
+        return Promise.resolve(true)
+      }
+      return started.then(() => {
+        audio.pause()
+        audio.currentTime = 0
+        return true
+      }).catch((error) => {
+        console.warn('Please click Test Sound / Enable once to allow audio in this browser.', error)
+        return false
+      })
+    } catch (error) {
+      console.warn('Could not enable timer sound:', error)
+      return Promise.resolve(false)
+    }
+  }
+
+  function stopAlarmSound() {
+    const audio = alarmAudioRef.current
+    if (!audio) return
+    audio.pause()
+    audio.loop = false
+    try { audio.currentTime = 0 } catch {}
+  }
+
+  function playCompletionSound() {
+    const audio = alarmAudioRef.current
+    if (!audio) return
+    audio.loop = true
+    audio.volume = 0.62
+    try { audio.currentTime = 0 } catch {}
+    const playback = audio.play()
+    if (playback && typeof playback.catch === 'function') {
+      playback.catch((error) => console.warn('Safari blocked the timer sound. Click Test Sound / Enable before starting the timer.', error))
+    }
+  }
+
+  function testCompletionSound() {
+    const audio = alarmAudioRef.current
+    if (!audio) return
+    audio.loop = false
+    audio.volume = 0.62
+    try { audio.currentTime = 0 } catch {}
+    const playback = audio.play()
+    if (playback && typeof playback.catch === 'function') {
+      playback.catch((error) => console.warn('Could not play timer sound:', error))
+    }
+  }
+
+  function dismissCompletion() {
+    stopAlarmSound()
+    setOverlay(null)
   }
 
   function saveActiveCheckpoint() {
@@ -304,6 +396,7 @@ function App() {
   }
 
   function handleStart() {
+    prepareCompletionSound()
     setPomodoroMessage('')
     if (mode === 'normal') {
       beginRun(0, 'normal')
@@ -346,6 +439,7 @@ function App() {
   }
 
   function startPomodoroBreak() {
+    prepareCompletionSound()
     const breakSeconds = parseTimeInput(pomodoroBreak)
     if (!breakSeconds || breakSeconds <= 0) {
       setOverlay('invalid')
@@ -356,6 +450,7 @@ function App() {
   }
 
   function startPomodoroFocus() {
+    prepareCompletionSound()
     const focusSeconds = parseTimeInput(pomodoroFocus)
     if (!focusSeconds || focusSeconds <= 0) {
       setOverlay('invalid')
@@ -367,11 +462,45 @@ function App() {
     beginRun(focusSeconds, 'pomodoro', { newRun: true })
   }
 
+  function endPomodoroBreak() {
+    if (modeRef.current !== 'pomodoro' || pomodoroPhaseRef.current !== 'break') return
+    stopInterval()
+    const nextIndex = pomodoroIndexRef.current + 1
+    setPomodoroIndex(nextIndex)
+    pomodoroIndexRef.current = nextIndex
+    setPomodoroPhase('focus')
+    pomodoroPhaseRef.current = 'focus'
+    const focusSeconds = parseTimeInput(pomodoroFocusRef.current) || 0
+    setSeconds(focusSeconds)
+    secondsRef.current = focusSeconds
+    setRunning(false)
+    setPaused(false)
+    runningRef.current = false
+    pausedRef.current = false
+    accumulatedRef.current = 0
+    segmentStartedAtRef.current = null
+    configuredSecondsRef.current = focusSeconds
+    clearActiveCheckpoint()
+    setOverlay(null)
+    setPomodoroMessage('Focus ready — press Start Focus')
+  }
+
   function finishCurrentPhase() {
     stopInterval()
+    playCompletionSound()
     const currentMode = modeRef.current
     const currentPhase = pomodoroPhaseRef.current
     const currentIndex = pomodoroIndexRef.current
+    if (currentMode === 'countdown') {
+      setCompletionInfo({ title: 'Timer complete!', message: 'You made time for what matters. Take a breath and celebrate your progress!', emoji: '🎉' })
+      setOverlay('finished')
+    } else if (currentMode === 'pomodoro' && currentPhase === 'focus') {
+      setCompletionInfo({ title: 'Focus session complete!', message: 'Amazing work! You showed up for your goal. Time for a little break.', emoji: '🌟' })
+      setOverlay('finished')
+    } else if (currentMode === 'pomodoro' && currentPhase === 'break') {
+      setCompletionInfo({ title: 'Break time is over!', message: 'Hope you feel refreshed. You’re ready for the next little step!', emoji: '🌷' })
+      setOverlay('finished')
+    }
     const elapsed = getElapsedForCurrentRun()
     const tag = tagsRef.current.find((item) => item.id === selectedTagRef.current) || tagsRef.current[0]
 
@@ -451,6 +580,7 @@ function App() {
   }
 
   function resumeFromPause() {
+    prepareCompletionSound()
     setOverlay(null)
     setPaused(false)
     pausedRef.current = false
@@ -463,14 +593,30 @@ function App() {
 
   function quitRun() {
     const elapsed = pausedRef.current ? accumulatedRef.current : getElapsedForCurrentRun()
+    const finishedMode = modeRef.current
+    const finishedPhase = pomodoroPhaseRef.current
     const tag = tagsRef.current.find((item) => item.id === selectedTagRef.current) || tagsRef.current[0]
-    if (!(modeRef.current === 'pomodoro' && pomodoroPhaseRef.current === 'break')) {
+    if (!(finishedMode === 'pomodoro' && finishedPhase === 'break')) {
       saveElapsedSession(elapsed, tag)
     }
-    resetRunState()
-    setOverlay(null)
+    stopInterval()
+    clearActiveCheckpoint()
+    accumulatedRef.current = 0
+    segmentStartedAtRef.current = null
+    runningRef.current = false
+    pausedRef.current = false
+    setRunning(false)
+    setPaused(false)
+    setSeconds(Math.floor(elapsed))
     setPomodoroMessage('')
     refreshHistory()
+    if (finishedMode === 'normal') {
+      setCompletionInfo(getNormalCompletionInfo(elapsed))
+      playCompletionSound()
+      setOverlay('finished')
+    } else {
+      setOverlay(null)
+    }
   }
 
   function restartRun() {
@@ -621,6 +767,7 @@ function App() {
     return () => {
       window.removeEventListener('storage', onStorage)
       stopInterval()
+      stopAlarmSound()
     }
     // Initial recovery intentionally runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -656,6 +803,7 @@ function App() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#fbf9ff_44%,#f7f4fb_100%)] px-4 py-8 text-black sm:px-6">
+      <audio ref={alarmAudioRef} src="/timer-notification.mp3" preload="auto" />
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5">
         <header className="w-full max-w-xl text-center">
           <div className="inline-flex rounded-xl border border-violet-200/80 bg-white/75 px-4 py-2 text-sm font-bold tracking-tight shadow-sm backdrop-blur">
@@ -665,13 +813,19 @@ function App() {
             <button className={`mode-button ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>Dashboard</button>
             <button className={`mode-button ${page === 'timer' ? 'active' : ''}`} onClick={() => setPage('timer')}>Timer</button>
             <button className={`mode-button ${page === 'history' ? 'active' : ''}`} onClick={() => { setPage('history'); refreshHistory() }}>History</button>
+            <button className={`mode-button ${page === 'habits' ? 'active' : ''}`} onClick={() => setPage('habits')}>Habits</button>
           </div>
         </header>
 
         {page === 'dashboard' ? (
           <Dashboard />
+        ) : page === 'habits' ? (
+          <Habits />
         ) : page === 'timer' ? (
           <section className="gloss-panel w-full max-w-xl rounded-3xl p-5 sm:p-7">
+            <div className="mb-3 flex items-center justify-end">
+              <button type="button" onClick={testCompletionSound} className="soft-button rounded-lg px-3 py-1.5 text-xs font-semibold">🔊 Test Sound</button>
+            </div>
             <div className="mb-5 flex w-full gap-2 rounded-xl bg-neutral-100/80 p-1">
               <button className={`mode-button ${mode === 'countdown' ? 'active' : ''}`} onClick={() => switchMode('countdown')}>Countdown</button>
               <button className={`mode-button ${mode === 'pomodoro' ? 'active' : ''}`} onClick={() => switchMode('pomodoro')}>Pomodoro</button>
@@ -723,6 +877,7 @@ function App() {
               {running && !paused && <ActionButton onClick={handlePause}>Pause</ActionButton>}
               {paused && <ActionButton onClick={resumeFromPause} primary>Resume</ActionButton>}
               {(running || paused) && <ActionButton onClick={() => setOverlay('quit')}>Quit</ActionButton>}
+              {mode === 'pomodoro' && pomodoroPhase === 'break' && (running || paused) && <ActionButton onClick={endPomodoroBreak} primary>End Break</ActionButton>}
               {(running || paused) && <ActionButton onClick={restartRun}>Restart</ActionButton>}
             </div>
 
@@ -750,6 +905,20 @@ function App() {
       {overlay === 'switch' && <Modal title="Timer is running" onClose={() => setOverlay(null)}><div className="space-y-4 text-center"><p className="text-sm text-neutral-600">Stop or finish the current timer before changing modes.</p><ActionButton onClick={() => setOverlay(null)} primary>OK</ActionButton></div></Modal>}
       {overlay === 'invalid' && <Modal title="Check timer settings" onClose={() => setOverlay(null)}><div className="space-y-4 text-center"><p className="text-sm text-neutral-600">Use a valid time in hh:mm:ss. Minutes and seconds must be 00–59, and the duration must be greater than zero.</p><ActionButton onClick={() => setOverlay(null)} primary>OK</ActionButton></div></Modal>}
       {overlay === 'recovered' && <Modal title="Timer recovered" onClose={() => setOverlay(null)}><div className="space-y-4 text-center"><p className="text-sm text-neutral-600">Your timer was restored from the last saved checkpoint. The elapsed time was preserved across the refresh or page interruption.</p><ActionButton onClick={resumeFromPause} primary>Continue</ActionButton><ActionButton onClick={() => setOverlay('quit')}>Quit</ActionButton></div></Modal>}
+      {overlay === 'finished' && <div className="celebration-backdrop fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={completionInfo.title}>
+        <div className={`celebration-card ${completionInfo.tone || ''} relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white bg-white px-6 py-8 text-center shadow-2xl sm:px-9`}>
+          <div className="celebration-sparkle sparkle-one">✦</div><div className="celebration-sparkle sparkle-two">✧</div><div className="celebration-sparkle sparkle-three">✿</div>
+          <div className="celebration-emoji mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-violet-50 text-5xl">{completionInfo.emoji}</div>
+          <div className="mb-2 text-xs font-extrabold uppercase tracking-[0.2em] text-violet-600">{completionInfo.durationLabel ? `Your ${completionInfo.durationLabel} victory` : 'Little win unlocked'}</div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-neutral-900">{completionInfo.title}</h2>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-neutral-600">{completionInfo.message}</p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            <button type="button" onClick={stopAlarmSound} className="soft-button rounded-xl px-5 py-3 text-sm font-bold">🔕 Stop alarm</button>
+            <button type="button" onClick={dismissCompletion} className="rounded-xl bg-violet-500 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-violet-600">Let’s go ✨</button>
+          </div>
+          <p className="mt-4 text-[11px] text-neutral-400">You’re doing great — one step at a time.</p>
+        </div>
+      </div>}
     </main>
   )
 }

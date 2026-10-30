@@ -26,7 +26,7 @@ function getSessionTimes(session) {
   return { start: new Date(startMs), end: new Date(endMs) }
 }
 
-export default function TodayStats({ sessions, dateLabel }) {
+export default function TodayStats({ sessions, dateLabel, isToday, canGoForward, onPreviousDay, onNextDay, onGoToday }) {
   const totalMinutes = sessions.reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0)
   const byTag = new Map()
 
@@ -48,9 +48,33 @@ export default function TodayStats({ sessions, dateLabel }) {
 
   return (
     <section className="gloss-panel w-full rounded-3xl p-5 sm:p-7">
-      <div className="mb-5 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-        <p className="mt-1 text-sm text-neutral-500">{dateLabel}</p>
+      <div className="mb-5">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={onPreviousDay}
+            className="soft-button rounded-xl px-3 py-2 text-xs font-bold"
+            aria-label="Go to previous day"
+          >
+            ← Previous day
+          </button>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold tracking-tight">{isToday ? 'Today' : 'Day'}</h1>
+            <p className="mt-1 text-sm text-neutral-500">{dateLabel}</p>
+          </div>
+          <button
+            onClick={onNextDay}
+            disabled={!canGoForward}
+            className="soft-button rounded-xl px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Go to next day"
+          >
+            Next day →
+          </button>
+        </div>
+        {!isToday && (
+          <div className="mt-2 text-center">
+            <button onClick={onGoToday} className="text-xs font-bold text-violet-600 hover:text-violet-800">Back to today</button>
+          </div>
+        )}
       </div>
 
       <div className="mb-5 grid grid-cols-2 gap-3">

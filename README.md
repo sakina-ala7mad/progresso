@@ -55,3 +55,14 @@ Session shape follows the requested schema:
 ## Tag deletion
 
 Tags can now be deleted from the Timer page using the small red `×` control that appears when hovering a tag. Deleting a tag does not modify existing session history. The currently selected tag is automatically switched to another remaining tag. At least one tag must remain.
+
+## Custom timer-completion sound (v6)
+
+- The app uses `public/timer-notification.mp3`, a 10-second maximum excerpt cropped from the audio file supplied by the user.
+- On the Timer page, click **Test Sound** once before starting a timer. This helps Safari authorize audio playback.
+- When a countdown or Pomodoro phase finishes, a cheerful completion dialog appears. The sound loops until **Stop alarm** is clicked. Click **Let's go** to dismiss the celebration.
+- If Safari is silent, go to Safari → Settings → Websites → Auto-Play and set **When visiting other websites** to **Allow All Auto-Play**, then reload and test the sound.
+
+## About the macOS menu bar
+
+This project is a browser-based Vite/React web app. A normal website cannot create a native item in the macOS menu bar like the battery, clock, or native apps. That requires a separate macOS menu-bar companion app or packaging the timer with native macOS integration. It is not controlled by a Safari setting.
