@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Dashboard from './pages/Dashboard'
 import Habits from './pages/Habits'
+import Notes from './pages/Notes'
 
 const TAGS_KEY = 'productivity_timer_tags_v1'
 const SESSIONS_KEY = 'productivity_timer_sessions_v1'
@@ -18,6 +19,12 @@ const COLOR_SWATCHES = [
   '#A9DEFF', '#FFB3A7', '#C7E98B', '#D8C2FF',
   '#9FE7E0', '#FFC2D9', '#F5C58C', '#BFCBFF',
 ]
+
+function shadeColor(hex, amount = -0.42) {
+  const value = hex.replace('#', '')
+  const channels = [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))
+  return '#' + channels.map(c => Math.max(0, Math.min(255, Math.round(c * (1 + amount)))).toString(16).padStart(2, '0')).join('')
+}
 
 function makeId(prefix = 'id') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
@@ -158,6 +165,8 @@ function buildTimerSnapshot({
 
 function App() {
   const [page, setPage] = useState('timer')
+  const [darkMode, setDarkMode] = useState(() => readStorage('productivity_dark_mode_v1', false))
+  useEffect(() => { writeStorage('productivity_dark_mode_v1', darkMode) }, [darkMode])
   const [mode, setMode] = useState('countdown')
   const [tags, setTags] = useState(() => normalizeTags(readStorage(TAGS_KEY, DEFAULT_TAGS)))
   const [selectedTagId, setSelectedTagId] = useState(() => normalizeTags(readStorage(TAGS_KEY, DEFAULT_TAGS))[0].id)
@@ -792,7 +801,7 @@ function App() {
     }
   }, [])
 
-  const displayColor = paused ? '#ef2f2f' : '#111111'
+  const displayColor = paused ? '#ef777f' : (darkMode ? '#f3edff' : '#171321')
   const pomodoroTotal = Number(pomodoroSessions) || 0
   let actionLabel = 'Start'
   if (mode === 'pomodoro' && !running && !paused) {
@@ -802,9 +811,9 @@ function App() {
   else if (paused) actionLabel = 'Resume'
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#fbf9ff_44%,#f7f4fb_100%)] px-4 py-8 text-black sm:px-6">
+    <main className={`app-root min-h-screen px-4 py-8 sm:px-6 ${darkMode ? 'dark-theme' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#fbf9ff_44%,#f7f4fb_100%)] text-black'}`}>
       <audio ref={alarmAudioRef} src="/timer-notification.mp3" preload="auto" />
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-5">
         <header className="w-full max-w-xl text-center">
           <div className="inline-flex rounded-xl border border-violet-200/80 bg-white/75 px-4 py-2 text-sm font-bold tracking-tight shadow-sm backdrop-blur">
             Time Tracker
@@ -814,6 +823,8 @@ function App() {
             <button className={`mode-button ${page === 'timer' ? 'active' : ''}`} onClick={() => setPage('timer')}>Timer</button>
             <button className={`mode-button ${page === 'history' ? 'active' : ''}`} onClick={() => { setPage('history'); refreshHistory() }}>History</button>
             <button className={`mode-button ${page === 'habits' ? 'active' : ''}`} onClick={() => setPage('habits')}>Habits</button>
+            <button className={`mode-button ${page === 'notes' ? 'active' : ''}`} onClick={() => setPage('notes')}>Notes</button>
+            <button className="mode-button" onClick={() => setDarkMode(v => !v)} aria-label="Toggle dark mode">{darkMode ? '☀️ Light' : '🌙 Dark'}</button>
           </div>
         </header>
 
@@ -821,8 +832,10 @@ function App() {
           <Dashboard />
         ) : page === 'habits' ? (
           <Habits />
+        ) : page === 'notes' ? (
+          <Notes />
         ) : page === 'timer' ? (
-          <section className="gloss-panel w-full max-w-xl rounded-3xl p-5 sm:p-7">
+          <section className="timer-panel gloss-panel w-full max-w-3xl rounded-3xl p-5 sm:p-7">
             <div className="mb-3 flex items-center justify-end">
               <button type="button" onClick={testCompletionSound} className="soft-button rounded-lg px-3 py-1.5 text-xs font-semibold">🔊 Test Sound</button>
             </div>
@@ -853,7 +866,7 @@ function App() {
             )}
 
             {mode === 'pomodoro' && (
-              <div className={`space-y-5 rounded-2xl p-3 transition-colors ${pomodoroPhase === 'break' ? 'bg-amber-50/80 ring-1 ring-amber-200' : ''}`}>
+              <div className={`pomodoro-break-surface space-y-5 rounded-2xl p-3 transition-colors ${pomodoroPhase === 'break' ? 'bg-amber-50/80 ring-1 ring-amber-200' : ''}`}>
                 <div className="grid grid-cols-2 gap-3">
                   <TimeField label="Focus" value={pomodoroFocus} onChange={setPomodoroFocus} disabled={running || paused} />
                   <TimeField label="Break" value={pomodoroBreak} onChange={setPomodoroBreak} disabled={running || paused} />
@@ -927,7 +940,7 @@ function HistoryPage({ history, onRefresh }) {
   const sorted = [...history].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   const totalMinutes = sorted.reduce((sum, item) => sum + Number(item.durationMinutes || 0), 0)
   return (
-    <section className="gloss-panel w-full max-w-xl rounded-3xl p-5 sm:p-7">
+    <section className="timer-panel gloss-panel w-full max-w-3xl rounded-3xl p-5 sm:p-7">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div><h1 className="text-xl font-bold">Session History</h1><p className="mt-1 text-xs text-neutral-500">Every saved focus session, newest first.</p></div>
         <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-semibold" onClick={onRefresh}>Refresh</button>
@@ -945,7 +958,7 @@ function HistoryPage({ history, onRefresh }) {
 }
 
 function TimerTagRow({ tags, selectedTagId, onSelect, onEdit, onDelete, onNew }) {
-  return <div><div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-neutral-400">Tag</span><button onClick={onNew} className="text-xs font-bold text-violet-600 hover:text-violet-800">+ New tag</button></div><div className="flex flex-wrap justify-center gap-2">{tags.map((tag) => <div key={tag.id} className="group relative"><button onClick={() => onSelect(tag.id)} className={`tag-chip rounded-full border px-3 py-1.5 text-xs font-semibold ${selectedTagId === tag.id ? 'border-black/20 ring-2 ring-violet-200' : 'border-black/10'}`} style={{ backgroundColor: tag.color }}>{tag.name}</button><div className="absolute -right-1.5 -top-1.5 hidden gap-0.5 group-hover:flex"><button aria-label={`Edit ${tag.name}`} onClick={() => onEdit(tag)} className="flex h-4 w-4 items-center justify-center rounded-full border border-white bg-neutral-800 text-[9px] text-white">✎</button><button aria-label={`Delete ${tag.name}`} onClick={() => onDelete(tag)} className="flex h-4 w-4 items-center justify-center rounded-full border border-white bg-red-500 text-[9px] text-white">×</button></div></div>)}</div></div>
+  return <div><div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-neutral-400">Tag</span><button onClick={onNew} className="text-xs font-bold text-violet-600 hover:text-violet-800">+ New tag</button></div><div className="flex flex-wrap justify-center gap-2">{tags.map((tag) => <div key={tag.id} className="group relative"><button onClick={() => onSelect(tag.id)} className={`tag-chip rounded-full border px-3 py-1.5 text-xs font-semibold ${selectedTagId === tag.id ? 'border-black/20 ring-2 ring-violet-200' : 'border-black/10'}`} style={{ backgroundColor: tag.color, color: '#241b2e', '--tag-dark': shadeColor(tag.color), '--tag-light': tag.color }}>{tag.name}</button><div className="absolute -right-1.5 -top-1.5 hidden gap-0.5 group-hover:flex"><button aria-label={`Edit ${tag.name}`} onClick={() => onEdit(tag)} className="flex h-4 w-4 items-center justify-center rounded-full border border-white bg-neutral-800 text-[9px] text-white">✎</button><button aria-label={`Delete ${tag.name}`} onClick={() => onDelete(tag)} className="flex h-4 w-4 items-center justify-center rounded-full border border-white bg-red-500 text-[9px] text-white">×</button></div></div>)}</div></div>
 }
 
 function TimeField({ label, value, onChange, disabled }) {
@@ -957,7 +970,7 @@ function ActionButton({ children, onClick, primary = false }) {
 }
 
 function Modal({ title, onClose, children }) {
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label={title}><div className="w-full max-w-sm rounded-2xl border border-white/70 bg-white p-5 shadow-2xl"><div className="mb-4 flex items-center justify-between gap-4"><h2 className="text-lg font-bold">{title}</h2><button onClick={onClose} aria-label="Close" className="rounded-lg px-2 py-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700">×</button></div>{children}</div></div>
+  return <div className="app-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-label={title}><div className="app-modal-card w-full max-w-sm rounded-[1.6rem] border p-5 shadow-2xl"><div className="mb-4 flex items-center justify-between gap-4"><h2 className="text-lg font-bold">{title}</h2><button onClick={onClose} aria-label="Close" className="modal-close rounded-xl px-2.5 py-1 text-sm">×</button></div>{children}</div></div>
 }
 
 export default App

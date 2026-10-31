@@ -89,6 +89,21 @@ export default function MonthlyStats({ sessions, now }) {
   })
 
   const totalMinutes = selectedSessions.reduce((sum, s) => sum + Number(s.durationMinutes || 0), 0)
+  const previousMonthStart = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1)
+  const currentMonthIsNow = selectedMonth.getFullYear() === now.getFullYear() && selectedMonth.getMonth() === now.getMonth()
+  const currentPeriodDays = currentMonthIsNow ? Math.max(1, now.getDate()) : new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()
+  // Compare the same number of calendar days in each month (month-to-date vs prior month-to-date).
+  const previousMonthDays = new Date(previousMonthStart.getFullYear(), previousMonthStart.getMonth() + 1, 0).getDate()
+  const previousComparableDays = Math.min(currentPeriodDays, previousMonthDays)
+  const previousComparableEnd = new Date(previousMonthStart)
+  previousComparableEnd.setDate(previousComparableEnd.getDate() + previousComparableDays)
+  const previousMonthMinutes = sessions.reduce((sum, session) => { const t = new Date(session.timestamp).getTime(); return Number.isFinite(t) && t >= previousMonthStart.getTime() && t < previousComparableEnd.getTime() ? sum + Number(session.durationMinutes || 0) : sum }, 0)
+  const currentDailyAverage = totalMinutes / currentPeriodDays
+  const previousDailyAverage = previousMonthMinutes / Math.max(1, Math.ceil((previousComparableEnd.getTime() - previousMonthStart.getTime()) / 86400000))
+  const averageChangeMinutes = currentDailyAverage - previousDailyAverage
+  const averageChangePercent = previousDailyAverage > 0 ? (averageChangeMinutes / previousDailyAverage) * 100 : null
+  const weeksInMonth = (monthEnd.getTime() - selectedMonth.getTime()) / (7 * 24 * 60 * 60 * 1000)
+  const averageWeekMinutes = totalMinutes / Math.max(1, weeksInMonth)
   const tagMap = new Map()
   selectedSessions.forEach((session) => {
     const name = session.tagName || 'Untitled'
@@ -111,7 +126,10 @@ export default function MonthlyStats({ sessions, now }) {
 
       <div className="mb-4 flex items-center justify-between gap-2">
         <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold" onClick={() => setMonthOffset((v) => v - 1)}>← Previous month</button>
-        <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setMonthOffset(0)} disabled={monthOffset === 0}>Current month</button>
+        <div className="flex gap-2">
+          <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setMonthOffset(0)} disabled={monthOffset === 0}>Current</button>
+          <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setMonthOffset(v => Math.min(0, v + 1))} disabled={monthOffset >= 0}>Next month →</button>
+        </div>
       </div>
 
       <div className="mb-5 grid grid-cols-2 gap-3">
@@ -123,6 +141,17 @@ export default function MonthlyStats({ sessions, now }) {
           <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Sessions</div>
           <div className="mt-1 text-xl font-bold text-violet-600">{selectedSessions.length}</div>
         </div>
+        <div className="rounded-2xl border border-violet-100 bg-white/70 p-4 text-center shadow-sm col-span-2">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Average focus per week</div>
+          <div className="mt-1 text-xl font-bold text-violet-600">{formatDuration(averageWeekMinutes)}</div>
+          <div className="mt-1 text-[10px] text-neutral-400">Monthly total divided by {weeksInMonth.toFixed(2)} weeks</div>
+        </div>
+        <div className="rounded-2xl border border-violet-100 bg-white/70 p-4 text-center shadow-sm col-span-2">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Compared with previous month</div>
+          <div className={`mt-1 text-xl font-bold ${averageChangeMinutes > 0 ? 'text-emerald-600' : averageChangeMinutes < 0 ? 'text-rose-500' : 'text-neutral-500'}`}>{averageChangeMinutes > 0 ? '↑ Higher' : averageChangeMinutes < 0 ? '↓ Lower' : '— No change'}</div>
+          <div className="mt-1 text-sm font-semibold">{formatDuration(currentDailyAverage)} per day{averageChangePercent === null ? ' · No previous-month baseline' : ` · ${averageChangePercent >= 0 ? '+' : '−'}${Math.abs(averageChangePercent).toFixed(1)}% vs ${formatDuration(previousDailyAverage)}/day`}</div>
+          <div className="mt-1 text-[10px] text-neutral-400">Daily average compared with the same {currentPeriodDays} days of {formatMonth(previousMonthStart)}</div>
+        </div>
       </div>
 
       <div className="space-y-5">
@@ -130,9 +159,9 @@ export default function MonthlyStats({ sessions, now }) {
           <div className="mb-2 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold">Weekly focus time</h3>
-              <p className="text-xs text-neutral-400">Five weekly periods inside this month · totals are pinned above each point</p>
+              <p className="text-xs text-neutral-400">Weekly periods inside this month · totals are pinned above each point</p>
             </div>
-            <span className="shrink-0 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">5 weeks</span>
+            <span className="shrink-0 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">{weeks.length} weeks</span>
           </div>
           <LineChartComponent data={lineData} todayKey={null} />
           <div className="mt-2 flex flex-wrap justify-center gap-3 text-[10px] font-semibold text-neutral-400">

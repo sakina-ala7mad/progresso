@@ -63,7 +63,10 @@ export default function YearlyStats({ sessions, now }) {
       <div className="mb-5 text-center"><h2 className="text-2xl font-bold tracking-tight">Yearly</h2><p className="mt-1 text-sm text-neutral-500">{year}</p></div>
       <div className="mb-4 flex items-center justify-between gap-2">
         <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold" onClick={() => setYearOffset((v) => v - 1)}>← Previous year</button>
-        <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setYearOffset(0)} disabled={yearOffset === 0}>Current year</button>
+        <div className="flex gap-2">
+          <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setYearOffset(0)} disabled={yearOffset === 0}>Current</button>
+          <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setYearOffset(v => Math.min(0, v + 1))} disabled={yearOffset >= 0}>Next year →</button>
+        </div>
       </div>
       <div className="mb-5 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-violet-100 bg-white/70 p-4 text-center shadow-sm"><div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Total focus</div><div className="mt-1 text-xl font-bold text-violet-600">{formatDuration(totalMinutes)}</div></div>

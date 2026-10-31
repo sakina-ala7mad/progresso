@@ -65,6 +65,15 @@ export default function WeeklyStats({ sessions, now }) {
   }))
 
   const totalMinutes = selectedSessions.reduce((sum, s) => sum + Number(s.durationMinutes || 0), 0)
+  const previousStart = new Date(weekStart); previousStart.setDate(previousStart.getDate() - 7)
+  const previousEnd = new Date(weekEnd); previousEnd.setDate(previousEnd.getDate() - 7)
+  const previousMinutes = sessions.reduce((sum, session) => {
+    const time = new Date(session.timestamp).getTime()
+    return time >= previousStart.getTime() && time < previousEnd.getTime() + 86400000 ? sum + Number(session.durationMinutes || 0) : sum
+  }, 0)
+  const weeklyAverage = totalMinutes / 7
+  const previousAverage = previousMinutes / 7
+  const averageChange = previousAverage > 0 ? ((weeklyAverage - previousAverage) / previousAverage) * 100 : null
   const tagMap = new Map()
   selectedSessions.forEach((session) => {
     const name = session.tagName || 'Untitled'
@@ -80,6 +89,7 @@ export default function WeeklyStats({ sessions, now }) {
 
   const range = `${formatShortDate(weekStart)} – ${formatShortDate(weekEnd)}`
   const isCurrentWeek = weekOffset === 0
+  const canGoForward = weekOffset < 0
 
   return (
     <section className="w-full rounded-3xl gloss-panel p-5 sm:p-7">
@@ -96,16 +106,13 @@ export default function WeeklyStats({ sessions, now }) {
         >
           ← Previous week
         </button>
-        <button
-          className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={() => setWeekOffset(0)}
-          disabled={isCurrentWeek}
-        >
-          Current week
-        </button>
+        <div className="flex gap-2">
+          <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setWeekOffset(0)} disabled={isCurrentWeek}>Current</button>
+          <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setWeekOffset(value => Math.min(0, value + 1))} disabled={!canGoForward} aria-label="View next week">Next week →</button>
+        </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border border-violet-100 bg-white/70 p-4 text-center shadow-sm">
           <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Total focus</div>
           <div className="mt-1 text-xl font-bold text-violet-600">{formatDuration(totalMinutes)}</div>
@@ -113,6 +120,16 @@ export default function WeeklyStats({ sessions, now }) {
         <div className="rounded-2xl border border-violet-100 bg-white/70 p-4 text-center shadow-sm">
           <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Sessions</div>
           <div className="mt-1 text-xl font-bold text-violet-600">{selectedSessions.length}</div>
+        </div>
+        <div className="rounded-2xl border border-violet-100 bg-white/70 p-4 text-center shadow-sm">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">Daily average</div>
+          <div className="mt-1 text-xl font-bold text-violet-600">{formatDuration(weeklyAverage)}</div>
+          <div className="mt-1 text-[10px] text-neutral-400">Average per day (7 days)</div>
+        </div>
+        <div className="rounded-2xl border border-violet-100 bg-white/70 p-4 text-center shadow-sm">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">vs. previous week</div>
+          <div className={`mt-1 text-xl font-bold ${averageChange === null ? 'text-neutral-400' : averageChange >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{averageChange === null ? '—' : `${averageChange >= 0 ? '+' : ''}${averageChange.toFixed(1)}%`}</div>
+          <div className="mt-1 text-[10px] text-neutral-400">{averageChange === null ? 'No previous-week baseline' : `${averageChange >= 0 ? '+' : '−'}${formatDuration(Math.abs(weeklyAverage - previousAverage))}/day vs ${formatDuration(previousAverage)}/day`}</div>
         </div>
       </div>
 
@@ -128,7 +145,7 @@ export default function WeeklyStats({ sessions, now }) {
           <LineChartComponent data={lineData} todayKey={isCurrentWeek ? todayKey : null} />
           <div className="mt-2 flex flex-wrap justify-center gap-3 text-[10px] font-semibold text-neutral-400">
             <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-violet-800 bg-violet-500" />Today</span>
-            <span>Previous days/weeks stay available with Previous week</span>
+            <span>Use Previous week and Next week to move one week at a time</span>
           </div>
         </div>
 
