@@ -70,7 +70,7 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="w-full max-w-xl">
+    <div className="w-full max-w-none">
       <div className="mb-4 flex w-full gap-1.5 overflow-x-auto rounded-2xl border border-violet-100 bg-white/70 p-1.5 shadow-sm">
         {tabs.map(([id, label]) => (
           <button

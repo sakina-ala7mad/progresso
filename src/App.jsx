@@ -110,6 +110,7 @@ function createSession({ tag, elapsedSeconds, timestamp = new Date().toISOString
   if (elapsedSeconds < 5 * 60) return null
   return {
     id: makeId('session'),
+    tagId: tag.id,
     tagName: tag.name,
     tagColor: tag.color,
     durationMinutes,
@@ -122,6 +123,8 @@ function appendSession(session) {
   if (!session) return
   const sessions = cleanStoredSessions()
   writeStorage(SESSIONS_KEY, [...sessions, session])
+  // Notify mounted pages immediately; the browser storage event does not fire in this tab.
+  window.dispatchEvent(new Event('productivity:sessions-updated'))
 }
 
 function getStoredTimer() {
@@ -813,8 +816,8 @@ function App() {
   return (
     <main className={`app-root min-h-screen px-4 py-8 sm:px-6 ${darkMode ? 'dark-theme' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#fbf9ff_44%,#f7f4fb_100%)] text-black'}`}>
       <audio ref={alarmAudioRef} src="/timer-notification.mp3" preload="auto" />
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-5">
-        <header className="w-full max-w-xl text-center">
+      <div className="mx-auto flex w-full max-w-none flex-col items-stretch gap-5">
+        <header className="w-full max-w-none text-center">
           <div className="inline-flex rounded-xl border border-violet-200/80 bg-white/75 px-4 py-2 text-sm font-bold tracking-tight shadow-sm backdrop-blur">
             Time Tracker
           </div>
@@ -829,13 +832,13 @@ function App() {
         </header>
 
         {page === 'dashboard' ? (
-          <Dashboard />
+          <ResizablePage page="dashboard"><Dashboard /></ResizablePage>
         ) : page === 'habits' ? (
-          <Habits />
+          <ResizablePage page="habits"><Habits /></ResizablePage>
         ) : page === 'notes' ? (
-          <Notes />
+          <ResizablePage page="notes"><Notes /></ResizablePage>
         ) : page === 'timer' ? (
-          <section className="timer-panel gloss-panel w-full max-w-3xl rounded-3xl p-5 sm:p-7">
+          <ResizablePage page="timer"><section className="timer-panel gloss-panel w-full max-w-none rounded-3xl p-5 sm:p-7">
             <div className="mb-3 flex items-center justify-end">
               <button type="button" onClick={testCompletionSound} className="soft-button rounded-lg px-3 py-1.5 text-xs font-semibold">🔊 Test Sound</button>
             </div>
@@ -905,9 +908,9 @@ function App() {
                 <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-semibold" onClick={() => selectedTag && openEditTag(selectedTag)}>Edit tag</button>
               </div>
             </div>
-          </section>
+          </section></ResizablePage>
         ) : (
-          <HistoryPage history={history} onRefresh={refreshHistory} />
+          <ResizablePage page="history"><HistoryPage history={history} onRefresh={refreshHistory} /></ResizablePage>
         )}
       </div>
 
@@ -936,11 +939,57 @@ function App() {
   )
 }
 
+function ResizablePage({ page, children }) {
+  const storageKey = `productivity_page_panel_size_${page}_v1`
+  const [size, setSize] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) || 'null') || { width: '100%', height: page === 'notes' ? '82vh' : '78vh' } }
+    catch { return { width: '100%', height: page === 'notes' ? '82vh' : '78vh' } }
+  })
+  useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(size)) } catch {} }, [storageKey, size])
+
+  function beginResize(edge, event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const node = event.currentTarget.parentElement
+    const rect = node.getBoundingClientRect()
+    const startX = event.clientX
+    const startY = event.clientY
+    const startWidth = rect.width
+    const startHeight = rect.height
+    const onMove = (moveEvent) => {
+      const dx = moveEvent.clientX - startX
+      const dy = moveEvent.clientY - startY
+      let width = startWidth
+      let height = startHeight
+      if (edge.includes('e')) width += dx
+      if (edge.includes('w')) width -= dx
+      if (edge.includes('s')) height += dy
+      if (edge.includes('n')) height -= dy
+      width = Math.max(320, Math.min(window.innerWidth - 32, width))
+      height = Math.max(360, Math.min(window.innerHeight - 120, height))
+      setSize({ width: Math.round(width), height: Math.round(height) })
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp, { once: true })
+  }
+
+  const edges = ['n','s','e','w','ne','nw','se','sw']
+  return <div className={`page-resizable page-resizable-${page}`} style={{ width: size.width, height: size.height }} aria-label={`${page} page content`}>
+    {children}
+    {edges.map(edge => <span key={edge} className={`page-resize-handle handle-${edge}`} role="separator" aria-label={`Resize ${page} panel from ${edge}`} onPointerDown={event => beginResize(edge, event)} />)}
+    <button type="button" className="page-resize-reset" title="Reset this page size" aria-label={`Reset ${page} panel size`} onClick={() => setSize({ width: '100%', height: page === 'notes' ? '82vh' : '78vh' })}>↗</button>
+  </div>
+}
+
 function HistoryPage({ history, onRefresh }) {
   const sorted = [...history].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   const totalMinutes = sorted.reduce((sum, item) => sum + Number(item.durationMinutes || 0), 0)
   return (
-    <section className="timer-panel gloss-panel w-full max-w-3xl rounded-3xl p-5 sm:p-7">
+    <section className="timer-panel gloss-panel w-full max-w-none rounded-3xl p-5 sm:p-7">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div><h1 className="text-xl font-bold">Session History</h1><p className="mt-1 text-xs text-neutral-500">Every saved focus session, newest first.</p></div>
         <button className="soft-button rounded-lg px-3 py-1.5 text-xs font-semibold" onClick={onRefresh}>Refresh</button>

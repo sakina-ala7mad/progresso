@@ -66,3 +66,21 @@ Tags can now be deleted from the Timer page using the small red `×` control tha
 ## About the macOS menu bar
 
 This project is a browser-based Vite/React web app. A normal website cannot create a native item in the macOS menu bar like the battery, clock, or native apps. That requires a separate macOS menu-bar companion app or packaging the timer with native macOS integration. It is not controlled by a Safari setting.
+
+
+## Start on macOS with one double-click
+
+1. Keep this project folder somewhere convenient (for example, Documents).
+2. Double-click **Start Productivity App.command**. It opens Terminal, installs dependencies on the first run if needed, starts the local server, and opens the app in your browser.
+3. Keep the Terminal window open while using the app. Press Control+C in that window to stop the local server.
+4. If macOS blocks the first launch, right-click the `.command` file, choose **Open**, and confirm.
+
+Node.js (LTS) and npm are required. This launcher does not package a heavy native app; it runs the existing lightweight Vite web app locally.
+
+## Automatic habit completion from timer tags
+
+When creating or editing a habit, choose a timer tag under **Automatically complete from timer tag**. Once sessions with that tag total at least 60 minutes on the current local day, the habit is checked automatically. Leave the setting at **No link — check manually** for a regular manually checked habit. Linked habits can still be checked manually.
+
+### Launcher troubleshooting (updated)
+
+The `Start Productivity App.command` launcher now locates the project folder if it is inside the project, or if it has been moved to Desktop while the extracted `fixsound` folder remains beside it. The simplest setup is to keep the `.command` file inside the `fixsound` folder, in the same folder as `package.json`, and double-click it there. Do not copy only the launcher to Desktop unless the extracted project folder is also nearby.

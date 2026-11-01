@@ -1,12 +1,15 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 const HABITS_KEY = 'productivity_habits_v1'
+const SESSIONS_KEY = 'productivity_timer_sessions_v1'
+const TAGS_KEY = 'productivity_timer_tags_v1'
 
 const COLORS = ['#67C8EA','#E46B8A','#A98AFB','#F2B84B','#79D39B','#FF9C78','#6F8CFF','#D58AE8','#56C7C0','#F28FB3','#8BCB7A','#F6A56F']
 const CATEGORIES = ['Health','Study','Soul','Work','Mental','Home','Other']
 
 function makeId(prefix='habit') { return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}` }
 function readHabits() { try { const raw = localStorage.getItem(HABITS_KEY); return raw ? JSON.parse(raw) : [] } catch { return [] } }
+function readJson(key, fallback) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback } catch { return fallback } }
 function writeHabits(habits) { try { localStorage.setItem(HABITS_KEY, JSON.stringify(habits)); return true } catch { return false } }
 function localKey(date) { const d = new Date(date); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 function fromKey(key) { const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d) }
@@ -21,7 +24,7 @@ function shortDay(date) { return date.toLocaleDateString(undefined,{weekday:'sho
 function daysInRange(start,end) { const out=[]; let d=new Date(start); d.setHours(0,0,0,0); const last=new Date(end); last.setHours(0,0,0,0); while(d<=last){out.push(new Date(d));d.setDate(d.getDate()+1)} return out }
 
 function normalizeHabit(h) {
-  return { id:h.id||makeId(), name:h.name||'New habit', color:h.color||COLORS[0], frequency:h.frequency||'daily', intervalDays:Math.max(2,Number(h.intervalDays)||2), category:h.category||'Other', size:h.size||'medium', createdAt:h.createdAt||new Date().toISOString(), completions:Array.isArray(h.completions)?h.completions:[], resetHistory:Array.isArray(h.resetHistory)?h.resetHistory:[] }
+  return { id:h.id||makeId(), name:h.name||'New habit', color:h.color||COLORS[0], frequency:h.frequency||'daily', intervalDays:Math.max(2,Number(h.intervalDays)||2), category:h.category||'Other', size:h.size||'medium', linkedTagId:h.linkedTagId||'', createdAt:h.createdAt||new Date().toISOString(), completions:Array.isArray(h.completions)?h.completions:[], resetHistory:Array.isArray(h.resetHistory)?h.resetHistory:[] }
 }
 
 function completionSet(habit) { return new Set(habit.completions||[]) }
@@ -62,6 +65,7 @@ function getWeekDays(base=new Date()) { const start=startOfWeek(base); return Ar
 
 export default function Habits({ onNavigate }) {
   const [habits,setHabits]=useState(()=>readHabits().map(normalizeHabit))
+  const [availableTags,setAvailableTags]=useState(()=>readJson(TAGS_KEY,[]))
   const [view,setView]=useState('list')
   const [selectedId,setSelectedId]=useState(null)
   const [calendarOpen,setCalendarOpen]=useState(false)
@@ -70,6 +74,27 @@ export default function Habits({ onNavigate }) {
 
   const selected=habits.find(h=>h.id===selectedId)||null
   function commit(next) { setHabits(next); writeHabits(next) }
+  useEffect(() => {
+    const syncFromSessions = () => {
+      const tags = readJson(TAGS_KEY, []); setAvailableTags(tags)
+      const sessions = readJson(SESSIONS_KEY, []); const today = todayKey()
+      const next = habits.map(h => {
+        if (!h.linkedTagId || h.completions.includes(today)) return h
+        const linkedTag = tags.find(t => t.id === h.linkedTagId)
+        const minutes = sessions.reduce((sum, session) => {
+          if (localKey(session.timestamp) !== today) return sum
+          const matches = session.tagId ? session.tagId === h.linkedTagId : linkedTag && session.tagName === linkedTag.name
+          return sum + (matches ? Number(session.durationMinutes || 0) : 0)
+        }, 0)
+        return minutes >= 60 ? { ...h, completions: [...h.completions, today].sort() } : h
+      })
+      if (next.some((h,i) => h !== habits[i])) commit(next)
+    }
+    syncFromSessions()
+    window.addEventListener('productivity:sessions-updated', syncFromSessions)
+    window.addEventListener('storage', syncFromSessions)
+    return () => { window.removeEventListener('productivity:sessions-updated', syncFromSessions); window.removeEventListener('storage', syncFromSessions) }
+  }, [habits])
   function toggleDay(habitId,key) {
     const next=habits.map(h=>{ if(h.id!==habitId)return h; const set=completionSet(h); if(set.has(key))set.delete(key); else set.add(key); return {...h,completions:[...set].sort()} })
     commit(next)
@@ -92,14 +117,14 @@ export default function Habits({ onNavigate }) {
     setModal(null)
   }
 
-  return <section className="w-full max-w-3xl">
+  return <section className="w-full max-w-none">
     {view==='list' && <>
       <div className="mb-4 flex items-end justify-between gap-3 px-1"><div><h1 className="text-2xl font-bold">Habit Tracker</h1><p className="mt-1 text-sm text-neutral-500">Build consistency one check-in at a time.</p></div><button className="soft-button rounded-xl px-3 py-2 text-xs font-bold" onClick={openAdd}>+ Add habit</button></div>
       {!habits.length ? <EmptyHabits onAdd={openAdd}/> : <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{habits.map(h=><HabitCard key={h.id} habit={h} onOpen={openDetail} onToggle={toggleDay}/>)}</div>}
       <button className="mt-4 w-full rounded-2xl border-2 border-neutral-400 bg-white/80 px-5 py-3 text-base font-bold shadow-sm hover:bg-white" onClick={openAdd}>add habit</button>
     </>}
     {view==='detail' && selected && <HabitDetail habit={selected} onBack={()=>setView('list')} onEdit={()=>openEdit(selected)} onDelete={()=>deleteHabit(selected)} onReset={()=>resetHabit(selected)} onToggle={toggleDay} calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen} calendarMonth={calendarMonth} setCalendarMonth={setCalendarMonth} onInvite={()=>setModal({type:'invite',habit:selected})}/>} 
-    {modal?.type==='edit' && <HabitEditor habit={modal.habit} onClose={()=>setModal(null)} onSave={saveHabit}/>} 
+    {modal?.type==='edit' && <HabitEditor habit={modal.habit} tags={availableTags} onClose={()=>setModal(null)} onSave={saveHabit}/>} 
     {modal?.type==='invite' && <InviteModal habit={modal.habit} onClose={()=>setModal(null)}/>} 
   </section>
 }
@@ -158,7 +183,7 @@ function MonthCalendar({habit,month,onToggle}) {
   </div>
 }
 
-function HabitEditor({habit,onClose,onSave}) { const initial=habit||{name:'',color:COLORS[0],frequency:'daily',intervalDays:3,category:'Health',size:'medium'}; const [draft,setDraft]=useState({...initial}); const update=(k,v)=>setDraft(d=>({...d,[k]:v})); return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"><div className="w-full max-w-md rounded-3xl border border-white/70 bg-white p-5 shadow-2xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold">{habit?'Edit habit':'Add habit'}</h2><button onClick={onClose} className="rounded-lg px-2 py-1 text-neutral-400">×</button></div><div className="space-y-4"><label className="block text-xs font-bold text-neutral-500">Habit name<input autoFocus value={draft.name} onChange={e=>update('name',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-violet-400" placeholder="e.g. Reading"/></label><div><div className="mb-2 text-xs font-bold text-neutral-500">Color</div><div className="flex flex-wrap gap-2">{COLORS.map(c=><button key={c} onClick={()=>update('color',c)} className={`h-8 w-8 rounded-full border-2 ${draft.color===c?'border-black':'border-white'} shadow`} style={{backgroundColor:c}}/>)}</div><label className="mt-2 flex items-center gap-2 text-xs font-semibold text-neutral-500">Custom<input type="color" value={draft.color} onChange={e=>update('color',e.target.value)} className="h-8 w-10 cursor-pointer rounded"/></label></div><div className="grid grid-cols-2 gap-3"><label className="text-xs font-bold text-neutral-500">Frequency<select value={draft.frequency} onChange={e=>update('frequency',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm"><option value="daily">Everyday</option><option value="weekly">Every week</option><option value="interval">Every X days</option></select></label>{draft.frequency==='interval'?<label className="text-xs font-bold text-neutral-500">Days<select value={draft.intervalDays} onChange={e=>update('intervalDays',Math.max(2,Number(e.target.value)||2))} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm">{Array.from({length:28},(_,i)=><option key={i+2} value={i+2}>{i+2} days</option>)}</select></label>:<label className="text-xs font-bold text-neutral-500">Category<select value={draft.category} onChange={e=>update('category',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm">{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label>}</div>{draft.frequency==='interval'&&<label className="block text-xs font-bold text-neutral-500">Category<select value={draft.category} onChange={e=>update('category',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm">{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label>}<div><div className="mb-2 text-xs font-bold text-neutral-500">Card size</div><div className="grid grid-cols-3 gap-2">{[['small','Today'],['medium','Week'],['big','Month']].map(([v,label])=><button key={v} onClick={()=>update('size',v)} className={`rounded-xl border px-3 py-2 text-xs font-bold ${draft.size===v?'border-violet-400 bg-violet-100 text-violet-700':'border-neutral-200 bg-neutral-50'}`}>{label}</button>)}</div></div><div className="flex justify-end gap-2 pt-2"><button className="soft-button rounded-xl px-4 py-2 text-sm font-bold" onClick={onClose}>Cancel</button><button className="rounded-xl border border-violet-500 bg-violet-500 px-4 py-2 text-sm font-bold text-white" onClick={()=>onSave(draft)}>Save</button></div></div></div></div> }
+function HabitEditor({habit,tags=[],onClose,onSave}) { const initial=habit||{name:'',color:COLORS[0],frequency:'daily',intervalDays:3,category:'Health',size:'medium',linkedTagId:''}; const [draft,setDraft]=useState({...initial}); const update=(k,v)=>setDraft(d=>({...d,[k]:v})); return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"><div className="w-full max-w-md rounded-3xl border border-white/70 bg-white p-5 shadow-2xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold">{habit?'Edit habit':'Add habit'}</h2><button onClick={onClose} className="rounded-lg px-2 py-1 text-neutral-400">×</button></div><div className="space-y-4"><label className="block text-xs font-bold text-neutral-500">Habit name<input autoFocus value={draft.name} onChange={e=>update('name',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-violet-400" placeholder="e.g. Reading"/></label><div><div className="mb-2 text-xs font-bold text-neutral-500">Color</div><div className="flex flex-wrap gap-2">{COLORS.map(c=><button key={c} onClick={()=>update('color',c)} className={`h-8 w-8 rounded-full border-2 ${draft.color===c?'border-black':'border-white'} shadow`} style={{backgroundColor:c}}/>)}</div><label className="mt-2 flex items-center gap-2 text-xs font-semibold text-neutral-500">Custom<input type="color" value={draft.color} onChange={e=>update('color',e.target.value)} className="h-8 w-10 cursor-pointer rounded"/></label></div><div className="grid grid-cols-2 gap-3"><label className="text-xs font-bold text-neutral-500">Frequency<select value={draft.frequency} onChange={e=>update('frequency',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm"><option value="daily">Everyday</option><option value="weekly">Every week</option><option value="interval">Every X days</option></select></label>{draft.frequency==='interval'?<label className="text-xs font-bold text-neutral-500">Days<select value={draft.intervalDays} onChange={e=>update('intervalDays',Math.max(2,Number(e.target.value)||2))} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm">{Array.from({length:28},(_,i)=><option key={i+2} value={i+2}>{i+2} days</option>)}</select></label>:<label className="text-xs font-bold text-neutral-500">Category<select value={draft.category} onChange={e=>update('category',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm">{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label>}</div>{draft.frequency==='interval'&&<label className="block text-xs font-bold text-neutral-500">Category<select value={draft.category} onChange={e=>update('category',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm">{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label>}<div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3"><label className="block text-xs font-bold text-neutral-600">Automatically complete from timer tag<select value={draft.linkedTagId||''} onChange={e=>update('linkedTagId',e.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm"><option value="">No link — check manually</option>{tags.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><p className="mt-2 text-[11px] leading-5 text-neutral-500">When sessions with this tag reach 1 hour in total today, this habit is checked automatically. You can still check it manually.</p></div><div><div className="mb-2 text-xs font-bold text-neutral-500">Card size</div><div className="grid grid-cols-3 gap-2">{[['small','Today'],['medium','Week'],['big','Month']].map(([v,label])=><button key={v} onClick={()=>update('size',v)} className={`rounded-xl border px-3 py-2 text-xs font-bold ${draft.size===v?'border-violet-400 bg-violet-100 text-violet-700':'border-neutral-200 bg-neutral-50'}`}>{label}</button>)}</div></div><div className="flex justify-end gap-2 pt-2"><button className="soft-button rounded-xl px-4 py-2 text-sm font-bold" onClick={onClose}>Cancel</button><button className="rounded-xl border border-violet-500 bg-violet-500 px-4 py-2 text-sm font-bold text-white" onClick={()=>onSave(draft)}>Save</button></div></div></div></div> }
 function InviteModal({habit,onClose}) { const [email,setEmail]=useState(''); return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl"><h2 className="text-lg font-bold">Invite to “{habit.name}”</h2><p className="mt-1 text-xs text-neutral-500">Collaboration is local-only for now. This prepares the workflow without sending anything.</p><input value={email} onChange={e=>setEmail(e.target.value)} className="mt-4 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm" placeholder="name@example.com"/><div className="mt-4 flex justify-end gap-2"><button className="soft-button rounded-xl px-4 py-2 text-sm font-bold" onClick={onClose}>Cancel</button><button className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white" onClick={()=>{window.alert(email?'Invite saved as a local draft.':'Enter an email address first.');if(email)onClose()}}>Invite</button></div></div></div> }
 function EmptyHabits({onAdd}) { return <div className="gloss-panel rounded-3xl p-8 text-center"><div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-violet-100 text-3xl">✓</div><h2 className="text-lg font-bold">No habits yet</h2><p className="mt-1 text-sm text-neutral-500">Add your first habit and start building a streak.</p><button className="mt-4 rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white" onClick={onAdd}>Add habit</button></div> }
 

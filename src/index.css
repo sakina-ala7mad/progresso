@@ -274,3 +274,73 @@ button { -webkit-tap-highlight-color: transparent; }
 .dark-theme .notes-resize-handle span { background:#665477; }
 .dark-theme .notes-resize-handle:hover span { background:#b99bdf; }
 @media(max-width:760px){ .notes-workspace-grid{grid-template-columns:minmax(0,1fr)!important;gap:10px!important}.notes-resize-handle{display:none}.notes-main-pane{padding-left:0}.notes-workspace-grid>.notes-sidebar{max-height:34vh} }
+
+
+/* Let each main section use the available window width and reflow naturally. */
+.app-root { width:100%; min-width:0; }
+.app-root > div { width:100%; max-width:none!important; }
+.app-root main, .app-root section, .app-root .timer-panel { min-width:0; }
+.app-root .timer-panel { width:100%; }
+.notes-tree-delete { width:27px; height:27px; display:inline-grid; place-items:center; border:1px solid rgba(220,90,110,.22)!important; border-radius:9px; background:rgba(255,235,239,.72)!important; color:#c84e66!important; opacity:.78; transition:background .15s,transform .15s,opacity .15s; }
+.notes-tree-delete:hover { opacity:1!important; background:#ffe0e6!important; transform:scale(1.04); }
+.notes-tree-move { width:36px; height:27px; max-width:36px; padding:0 3px!important; border:1px solid rgba(145,119,180,.24)!important; border-radius:9px; background:rgba(248,244,255,.9)!important; color:#67547e!important; opacity:.85; cursor:pointer; }
+.notes-tree-row:hover .notes-tree-move { opacity:1; }
+.dark-theme .notes-tree-delete { background:rgba(111,47,65,.38)!important; border-color:rgba(255,140,160,.24)!important; color:#ff9aaa!important; }
+.dark-theme .notes-tree-delete:hover { background:rgba(145,54,77,.55)!important; }
+.dark-theme .notes-tree-move { background:#393047!important; border-color:#675779!important; color:#e5d9f2!important; }
+@media(max-width:760px){ .app-root { padding-left:12px!important; padding-right:12px!important; } .app-root header { max-width:none!important; } }
+.notes-tree-delete svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+
+/* Each page has its own saved panel size and eight edge/corner resize handles. */
+.page-resizable {
+  position: relative;
+  min-width: 320px;
+  min-height: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 120px);
+  margin: 0 auto 18px;
+  overflow: auto;
+  border-radius: 26px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150,125,185,.45) transparent;
+  touch-action: pan-x pan-y;
+}
+.page-resizable > * { min-width: 0; }
+.page-resizable-notes > .notes-shell { min-height: 100%; }
+.page-resize-handle { position:absolute; z-index:20; display:block; touch-action:none; }
+.handle-n,.handle-s { left:14px; right:14px; height:9px; cursor:ns-resize; }
+.handle-n { top:0; }
+.handle-s { bottom:0; }
+.handle-e,.handle-w { top:14px; bottom:14px; width:9px; cursor:ew-resize; }
+.handle-e { right:0; }
+.handle-w { left:0; }
+.handle-ne,.handle-nw,.handle-se,.handle-sw { width:17px; height:17px; }
+.handle-ne { top:0; right:0; cursor:nesw-resize; }
+.handle-nw { top:0; left:0; cursor:nwse-resize; }
+.handle-se { bottom:0; right:0; cursor:nwse-resize; }
+.handle-sw { bottom:0; left:0; cursor:nesw-resize; }
+.page-resize-hint { display:none; }
+.page-resize-reset {
+  position:sticky; float:right; bottom:8px; z-index:21; margin: -31px 15px 8px 0;
+  width:25px; height:25px; border:1px solid rgba(150,125,185,.3); border-radius:8px;
+  background:rgba(255,255,255,.88); color:#8267a5; font-size:14px; line-height:1;
+  box-shadow:0 2px 8px rgba(50,35,70,.08); cursor:pointer;
+}
+.page-resize-handle:hover { background:rgba(151,119,190,.12); }
+.dark-theme .page-resize-reset { background:#30283a; border-color:#655477; color:#d6c1ee; }
+@media(max-width:640px) {
+  .page-resizable { min-width:0; max-width:calc(100vw - 20px); min-height:360px; }
+  .handle-e,.handle-w { width:12px; }
+  .handle-n,.handle-s { height:12px; }
+}
+
+/* Hide the visible scrollbar on resizable page cards while keeping scrolling enabled. */
+.page-resizable {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.page-resizable::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
