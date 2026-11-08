@@ -84,3 +84,10 @@ When creating or editing a habit, choose a timer tag under **Automatically compl
 ### Launcher troubleshooting (updated)
 
 The `Start Productivity App.command` launcher now locates the project folder if it is inside the project, or if it has been moved to Desktop while the extracted `fixsound` folder remains beside it. The simplest setup is to keep the `.command` file inside the `fixsound` folder, in the same folder as `package.json`, and double-click it there. Do not copy only the launcher to Desktop unless the extracted project folder is also nearby.
+
+## Part 4 v12 Notes and panel updates
+- Copy Style remains saved after applying it; use Apply Style repeatedly, or Copy Style again to replace the saved formatting.
+- Highlight colors automatically choose a contrasting text color for readability in both appearance modes.
+- The Notes toolbar's right-side layout is wider and keeps its Top / Right / Both location selector visible.
+- Selected note tags and the tag editor are displayed above the writing area.
+- Dashboard, Timer, History, Habits, and Notes panels are keyed independently so changing one page's size does not carry over to another page.

@@ -344,3 +344,106 @@ button { -webkit-tap-highlight-color: transparent; }
   width: 0 !important;
   height: 0 !important;
 }
+
+/* Notes editor: persistent, movable formatting toolbar and accessible default text. */
+.notes-rich-editor { color:#111827; caret-color:#111827; }
+.dark-theme .notes-rich-editor { color:#f9f7ff; caret-color:#f9f7ff; }
+.notes-rich-editor a { color:#2457a6; text-decoration:underline; text-decoration-thickness:1.5px; text-underline-offset:2px; cursor:pointer; font-weight:650; }
+.dark-theme .notes-rich-editor a { color:#a9c8ff; }
+.notes-editor-layout { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:10px; min-width:0; }
+.notes-editor-content { grid-column:1; grid-row:2; min-width:0; }
+.notes-toolbar { position:sticky; top:8px; z-index:12; max-height:min(42vh,420px); overflow:auto; scrollbar-width:none; }
+.notes-toolbar::-webkit-scrollbar { display:none; }
+.notes-toolbar-top { grid-column:1; grid-row:1; }
+.notes-toolbar-group { display:flex; align-items:center; flex-wrap:wrap; gap:5px; }
+.notes-color-group { flex-wrap:nowrap; max-width:100%; overflow-x:auto; scrollbar-width:none; }
+.notes-color-group::-webkit-scrollbar { display:none; }
+.notes-color-swatch { width:19px; height:19px; flex:0 0 19px; border:1px solid rgba(30,25,40,.35)!important; border-radius:6px!important; padding:0!important; box-shadow:inset 0 0 0 1px rgba(255,255,255,.38); }
+.notes-color-swatch.is-recent { outline:2px solid #8b5cf6; outline-offset:2px; }
+.dark-theme .notes-color-swatch { border-color:rgba(255,255,255,.55)!important; }
+.notes-toolbar .toolbar-tool.is-armed { background:#e8dcff; border-color:#9b7bc6; color:#3f2860; }
+.dark-theme .notes-toolbar .toolbar-tool.is-armed { background:#51416a; border-color:#b99bdf; color:#fff; }
+.toolbar-location-label { display:flex; align-items:center; gap:6px; margin-left:auto; color:#625a70; font-size:11px; font-weight:700; }
+.toolbar-location-label select { min-height:30px; border:1px solid #d8cce8; border-radius:8px; padding:4px 7px; background:#fff; color:#3c334b; font-size:11px; }
+.dark-theme .toolbar-location-label { color:#ded5ea; }
+.dark-theme .toolbar-location-label select { background:#302a3d; border-color:#625474; color:#f3edf9; }
+.toolbar-layout-right { grid-template-columns:minmax(0,1fr) 108px; }
+.toolbar-layout-right .notes-toolbar-side { grid-column:2; grid-row:1; flex-direction:column; flex-wrap:nowrap; width:48px; max-height:min(72vh,760px); align-items:center; padding:8px 5px; }
+.toolbar-layout-right .notes-toolbar-side .notes-toolbar-group { flex-direction:column; flex-wrap:nowrap; }
+.toolbar-layout-right .notes-toolbar-side .toolbar-divider { width:24px; height:1px; margin:3px 0; }
+.toolbar-layout-right .notes-toolbar-side .notes-color-group { flex-direction:column; overflow-y:auto; overflow-x:hidden; max-height:190px; }
+.toolbar-layout-right .notes-toolbar-side .toolbar-location-label { display:none; }
+.toolbar-layout-right .notes-editor-content { grid-column:1; grid-row:1; }
+.toolbar-layout-both { grid-template-columns:minmax(0,1fr) 108px; }
+.toolbar-layout-both .notes-toolbar-top { grid-column:1 / -1; grid-row:1; }
+.toolbar-layout-both .notes-toolbar-side { grid-column:2; grid-row:2; flex-direction:column; flex-wrap:nowrap; width:48px; max-height:min(72vh,760px); align-items:center; padding:8px 5px; }
+.toolbar-layout-both .notes-toolbar-side .notes-toolbar-group { flex-direction:column; flex-wrap:nowrap; }
+.toolbar-layout-both .notes-toolbar-side .toolbar-divider { width:24px; height:1px; margin:3px 0; }
+.toolbar-layout-both .notes-toolbar-side .notes-color-group { flex-direction:column; overflow-y:auto; overflow-x:hidden; max-height:190px; }
+.toolbar-layout-both .notes-toolbar-side .toolbar-location-label { display:none; }
+.toolbar-layout-both .notes-editor-content { grid-column:1; grid-row:2; }
+.dark-theme .notes-rich-editor:empty:before { color:#bcb3ca; }
+@media(max-width:760px) {
+  .toolbar-layout-right,.toolbar-layout-both { grid-template-columns:minmax(0,1fr); }
+  .toolbar-layout-right .notes-toolbar-side,.toolbar-layout-both .notes-toolbar-side { grid-column:1; grid-row:1; width:100%; max-height:30vh; flex-direction:row; flex-wrap:wrap; }
+  .toolbar-layout-right .notes-toolbar-side .notes-toolbar-group,.toolbar-layout-both .notes-toolbar-side .notes-toolbar-group { flex-direction:row; flex-wrap:wrap; }
+  .toolbar-layout-right .notes-toolbar-side .notes-color-group,.toolbar-layout-both .notes-toolbar-side .notes-color-group { flex-direction:row; max-height:none; }
+  .toolbar-layout-right .notes-editor-content,.toolbar-layout-both .notes-editor-content { grid-column:1; grid-row:2; }
+}
+
+.toolbar-location-side { margin:4px 0 0; flex-direction:column; gap:3px; font-size:9px; }
+.toolbar-location-side select { width:38px; max-width:38px; padding:3px 1px; font-size:9px; }
+/* Keep neutral black/white text readable when the appearance theme changes. */
+.notes-rich-editor font[color="#111827" i],
+.notes-rich-editor font[color="#000000" i],
+.notes-rich-editor [style*="color: rgb(17, 24, 39)"],
+.notes-rich-editor [style*="color: rgb(0, 0, 0)"] { color:#111827!important; }
+.dark-theme .notes-rich-editor font[color="#111827" i],
+.dark-theme .notes-rich-editor font[color="#000000" i],
+.dark-theme .notes-rich-editor [style*="color: rgb(17, 24, 39)"],
+.dark-theme .notes-rich-editor [style*="color: rgb(0, 0, 0)"] { color:#f9f7ff!important; }
+.notes-rich-editor font[color="#ffffff" i],
+.notes-rich-editor [style*="color: rgb(255, 255, 255)"] { color:#111827!important; }
+.dark-theme .notes-rich-editor font[color="#ffffff" i],
+.dark-theme .notes-rich-editor [style*="color: rgb(255, 255, 255)"] { color:#f9f7ff!important; }
+
+/* Notes toolbar: usable vertical layout with the location selector always available. */
+.toolbar-layout-right { grid-template-columns:minmax(0,1fr) 108px!important; }
+.toolbar-layout-both { grid-template-columns:minmax(0,1fr) 108px!important; }
+.toolbar-layout-right .notes-toolbar-side,
+.toolbar-layout-both .notes-toolbar-side {
+  grid-column:2!important; grid-row:1!important; width:108px!important; min-width:108px;
+  max-height:min(76vh,820px); overflow-y:auto; overflow-x:hidden;
+  flex-direction:column; flex-wrap:nowrap; align-items:stretch; gap:7px; padding:9px 7px;
+}
+.toolbar-layout-both .notes-toolbar-side { grid-row:2!important; }
+.toolbar-layout-right .notes-toolbar-side .notes-toolbar-group,
+.toolbar-layout-both .notes-toolbar-side .notes-toolbar-group {
+  width:100%; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:5px;
+}
+.toolbar-layout-right .notes-toolbar-side .toolbar-tool,
+.toolbar-layout-both .notes-toolbar-side .toolbar-tool {
+  min-width:34px; min-height:32px; padding:5px 7px; font-size:11px;
+}
+.toolbar-layout-right .notes-toolbar-side select.toolbar-tool,
+.toolbar-layout-both .notes-toolbar-side select.toolbar-tool { max-width:96px; width:96px; }
+.toolbar-layout-right .notes-toolbar-side .toolbar-divider,
+.toolbar-layout-both .notes-toolbar-side .toolbar-divider { width:78%; height:1px; margin:1px auto; }
+.toolbar-layout-right .notes-toolbar-side .notes-color-group,
+.toolbar-layout-both .notes-toolbar-side .notes-color-group {
+  display:grid; grid-template-columns:repeat(4,19px); justify-content:center;
+  overflow:visible; max-height:none; gap:6px; padding:3px 0;
+}
+.toolbar-layout-right .notes-toolbar-side .toolbar-location-label,
+.toolbar-layout-both .notes-toolbar-side .toolbar-location-label {
+  display:flex!important; width:100%; margin:3px 0 0; flex-direction:column; align-items:stretch;
+  gap:4px; font-size:10px; text-align:center;
+}
+.toolbar-layout-right .notes-toolbar-side .toolbar-location-label select,
+.toolbar-layout-both .notes-toolbar-side .toolbar-location-label select {
+  width:94px; max-width:94px; min-height:30px; margin:0 auto; padding:4px 5px; font-size:10px;
+}
+.notes-tags-top { min-height:25px; }
+.notes-tag-edit-button { border-color:#ded3ed!important; color:#705b88; background:rgba(255,255,255,.65); }
+.dark-theme .notes-tag-edit-button { border-color:#625474!important; color:#e4d8f2; background:#302a3d; }
+/* Each route gets a fresh ResizablePage instance (keyed by page) and its own saved dimensions. */

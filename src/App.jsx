@@ -832,13 +832,13 @@ function App() {
         </header>
 
         {page === 'dashboard' ? (
-          <ResizablePage page="dashboard"><Dashboard /></ResizablePage>
+          <ResizablePage key="dashboard" page="dashboard"><Dashboard /></ResizablePage>
         ) : page === 'habits' ? (
-          <ResizablePage page="habits"><Habits /></ResizablePage>
+          <ResizablePage key="habits" page="habits"><Habits /></ResizablePage>
         ) : page === 'notes' ? (
-          <ResizablePage page="notes"><Notes /></ResizablePage>
+          <ResizablePage key="notes" page="notes"><Notes /></ResizablePage>
         ) : page === 'timer' ? (
-          <ResizablePage page="timer"><section className="timer-panel gloss-panel w-full max-w-none rounded-3xl p-5 sm:p-7">
+          <ResizablePage key="timer" page="timer"><section className="timer-panel gloss-panel w-full max-w-none rounded-3xl p-5 sm:p-7">
             <div className="mb-3 flex items-center justify-end">
               <button type="button" onClick={testCompletionSound} className="soft-button rounded-lg px-3 py-1.5 text-xs font-semibold">🔊 Test Sound</button>
             </div>
@@ -910,7 +910,7 @@ function App() {
             </div>
           </section></ResizablePage>
         ) : (
-          <ResizablePage page="history"><HistoryPage history={history} onRefresh={refreshHistory} /></ResizablePage>
+          <ResizablePage key="history" page="history"><HistoryPage history={history} onRefresh={refreshHistory} /></ResizablePage>
         )}
       </div>
 

@@ -25,9 +25,17 @@ export default function Notes() {
   const [expandedFolders, setExpandedFolders] = useState(() => ({}))
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [trashPreview, setTrashPreview] = useState(null)
+  const [toolbarPosition, setToolbarPosition] = useState(() => localStorage.getItem('productivity_notes_toolbar_position_v1') || 'top')
+  const [recentTextColors, setRecentTextColors] = useState(() => read('productivity_notes_recent_text_colors_v1', []))
+  const [recentHighlightColors, setRecentHighlightColors] = useState(() => read('productivity_notes_recent_highlight_colors_v1', []))
+  const [styleCopied, setStyleCopied] = useState(false)
+  const styleClipboardRef = useRef(null)
   const editorRef = useRef(null)
   const active = workspace.notes.find(n => n.id === activeId && !n.deletedAt) || null
   useEffect(() => { localStorage.setItem(NOTES_KEY, JSON.stringify(workspace)) }, [workspace])
+  useEffect(() => { localStorage.setItem('productivity_notes_toolbar_position_v1', toolbarPosition) }, [toolbarPosition])
+  useEffect(() => { localStorage.setItem('productivity_notes_recent_text_colors_v1', JSON.stringify(recentTextColors)) }, [recentTextColors])
+  useEffect(() => { localStorage.setItem('productivity_notes_recent_highlight_colors_v1', JSON.stringify(recentHighlightColors)) }, [recentHighlightColors])
   useEffect(() => { if (active && editorRef.current && editorRef.current.innerHTML !== (active.bodyHtml || '')) editorRef.current.innerHTML = active.bodyHtml || '' }, [activeId])
 
   const liveFolders = workspace.folders.filter(f => f.id !== 'inbox' && !f.deletedAt)
@@ -84,6 +92,94 @@ export default function Notes() {
   function permanentlyDeleteNote(id) { if (confirm('Permanently delete this note? This cannot be undone.')) setWorkspace(w => ({ ...w, notes: w.notes.filter(n => n.id !== id) })) }
   function permanentlyDeleteFolder(id) { const ids = [id]; let changed = true; while (changed) { changed = false; workspace.folders.forEach(f => { if (ids.includes(f.parentId) && !ids.includes(f.id)) { ids.push(f.id); changed = true } }) }; if (ids.length > 1 || workspace.notes.some(n => ids.includes(n.folderId))) { alert('This folder still contains files or subfolders. Delete them individually first.'); return }; if (!confirm('Permanently delete this empty folder? This cannot be undone.')) return; setWorkspace(w => ({ ...w, folders: w.folders.filter(f => !ids.includes(f.id)) })); setTrashPreview(null) }
   function format(command, value) { editorRef.current?.focus(); document.execCommand(command, false, value); saveEditor() }
+  function rememberColor(kind, color) {
+    const setter = kind === 'text' ? setRecentTextColors : setRecentHighlightColors
+    setter(previous => [color, ...previous.filter(item => item.toLowerCase() !== color.toLowerCase())].slice(0, 8))
+  }
+  function applyPaletteColor(kind, color) {
+    editorRef.current?.focus()
+    if (kind === 'text') {
+      document.execCommand('foreColor', false, color)
+      rememberColor('text', color)
+    } else {
+      const selected = String(document.queryCommandValue('hiliteColor') || document.queryCommandValue('backColor') || '').toLowerCase()
+      const normalized = color.toLowerCase()
+      const rgb = (() => { const h = color.replace('#',''); const n = parseInt(h,16); return `rgb(${(n>>16)&255}, ${(n>>8)&255}, ${n&255})`.toLowerCase() })()
+      const same = selected === normalized || selected.replace(/\s/g,'') === rgb.replace(/\s/g,'')
+      document.execCommand('styleWithCSS', false, true)
+      document.execCommand('hiliteColor', false, same ? 'transparent' : color)
+      if (same) {
+        document.execCommand('backColor', false, 'transparent')
+        document.execCommand('foreColor', false, editorRef.current?.closest('.dark-theme') ? '#ffffff' : '#17131f')
+      } else {
+        // Pick a readable foreground for the selected highlight color.
+        const h = color.replace('#', '')
+        const channels = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+        const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+        document.execCommand('foreColor', false, luminance > 0.42 ? '#17131f' : '#ffffff')
+      }
+      rememberColor('highlight', color)
+    }
+    saveEditor()
+  }
+  function insertOrOpenLink() {
+    const selection = window.getSelection()
+    const selectedText = selection?.toString().trim()
+    if (!selectedText) { alert('Select the text you want to turn into a link first.'); return }
+    const raw = prompt('Enter the link URL (website address):', 'https://')
+    if (!raw) return
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    editorRef.current?.focus()
+    document.execCommand('createLink', false, url)
+    editorRef.current?.querySelectorAll('a').forEach(anchor => {
+      if (anchor.href === url || anchor.getAttribute('href') === url) { anchor.target = '_blank'; anchor.rel = 'noopener noreferrer' }
+    })
+    saveEditor()
+  }
+  function handleEditorClick(event) {
+    const anchor = event.target.closest?.('a')
+    if (!anchor || !editorRef.current?.contains(anchor)) return
+    event.preventDefault()
+    const href = anchor.getAttribute('href')
+    if (href) window.open(href, '_blank', 'noopener,noreferrer')
+  }
+  function copyOrApplyStyle(forceCopy = false) {
+    const selection = window.getSelection()
+    if (!styleClipboardRef.current || forceCopy) {
+      if (!selection?.rangeCount || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
+        alert('Select some formatted text first, then press Copy style.')
+        return
+      }
+      let node = selection.anchorNode.nodeType === Node.ELEMENT_NODE ? selection.anchorNode : selection.anchorNode.parentElement
+      if (!node || node === editorRef.current) node = node?.firstElementChild || editorRef.current
+      const style = window.getComputedStyle(node)
+      styleClipboardRef.current = {
+        color: style.color,
+        backgroundColor: style.backgroundColor,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        fontStyle: style.fontStyle,
+        textDecoration: style.textDecorationLine
+      }
+      setStyleCopied(true)
+      return
+    }
+    if (!selection?.rangeCount || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
+      alert('Select the text you want to format, then press Apply style.')
+      return
+    }
+    const style = styleClipboardRef.current
+    editorRef.current.focus()
+    document.execCommand('styleWithCSS', false, true)
+    if (style.color) document.execCommand('foreColor', false, style.color)
+    if (style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)') document.execCommand('hiliteColor', false, style.backgroundColor)
+    if (style.fontWeight === '700' || style.fontWeight === 'bold') document.execCommand('bold')
+    if (style.fontStyle === 'italic') document.execCommand('italic')
+    if (style.textDecoration.includes('underline')) document.execCommand('underline')
+    if (style.textDecoration.includes('line-through')) document.execCommand('strikeThrough')
+    if (style.fontSize) { const px = parseFloat(style.fontSize); const scale = [10, 13, 16, 18, 24, 32, 48]; const size = scale.reduce((best, value, index) => Math.abs(value-px) < Math.abs(scale[best]-px) ? index : best, 0) + 1; document.execCommand('fontSize', false, String(size)) }
+    saveEditor()
+  }
   function openTrashPreview(kind, id) { setTrashPreview({ kind, id }) }
   const previewNote = trashPreview?.kind === 'note' ? trashNotes.find(n => n.id === trashPreview.id) : null
   const previewFolder = trashPreview?.kind === 'folder' ? trashFolders.find(f => f.id === trashPreview.id) : null
@@ -122,6 +218,23 @@ export default function Notes() {
       </div>}
     </div>
   }
+  function renderToolbar(orientation = 'top') {
+    const visibleTextColors = [...recentTextColors, ...TEXT_COLORS.filter(c => !recentTextColors.includes(c))]
+    const visibleHighlights = [...recentHighlightColors, ...COLORS.filter(c => !recentHighlightColors.includes(c))]
+    return <div className={`notes-toolbar notes-toolbar-${orientation}`}>
+      <div className="notes-toolbar-group"><button title="Bold (Cmd/Ctrl+B)" onMouseDown={e=>e.preventDefault()} onClick={()=>format('bold')} className="toolbar-tool">B</button><button title="Italic (Cmd/Ctrl+I)" onMouseDown={e=>e.preventDefault()} onClick={()=>format('italic')} className="toolbar-tool italic">I</button><button title="Strikethrough" onMouseDown={e=>e.preventDefault()} onClick={()=>format('strikeThrough')} className="toolbar-tool line-through">S</button><select aria-label="Text size" onMouseDown={e=>e.stopPropagation()} onChange={e=>format('formatBlock',e.target.value)} defaultValue="p" className="toolbar-tool"><option value="p">Normal</option><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option></select></div>
+      <span className="toolbar-divider"/>
+      <div className="notes-toolbar-group"><label title="Custom text color" className="toolbar-tool">A<input type="color" onChange={e=>applyPaletteColor('text',e.target.value)} className="h-6 w-6 cursor-pointer"/></label><label title="Custom highlight color (choose the same color again to remove it)" className="toolbar-tool">▰<input type="color" defaultValue="#FDE68A" onChange={e=>applyPaletteColor('highlight',e.target.value)} className="h-6 w-6 cursor-pointer"/></label></div>
+      <span className="toolbar-divider"/>
+      <div className="notes-toolbar-group notes-color-group" aria-label="Recent text colors">{visibleTextColors.map((c,i)=><button key={`t-${c}`} title={`${i < recentTextColors.length ? 'Recent ' : ''}Text color ${c}`} onMouseDown={e=>e.preventDefault()} onClick={()=>applyPaletteColor('text',c)} className={`notes-color-swatch ${i===0&&recentTextColors.length?'is-recent':''}`} style={{backgroundColor:c}}/>)}</div>
+      <span className="toolbar-divider"/>
+      <div className="notes-toolbar-group notes-color-group" aria-label="Recent highlight colors">{visibleHighlights.map((c,i)=><button key={`h-${c}`} title={`${i < recentHighlightColors.length ? 'Recent ' : ''}Highlight ${c} — choose again to erase`} onMouseDown={e=>e.preventDefault()} onClick={()=>applyPaletteColor('highlight',c)} className={`notes-color-swatch highlight-swatch ${i===0&&recentHighlightColors.length?'is-recent':''}`} style={{backgroundColor:c}}/>)}</div>
+      <span className="toolbar-divider"/>
+      <div className="notes-toolbar-group"><button title="Create a clickable link from selected text" onMouseDown={e=>e.preventDefault()} onClick={insertOrOpenLink} className="toolbar-tool">↗ Link</button><button title="Copy formatting from selected text (replaces the saved style)" onMouseDown={e=>e.preventDefault()} onClick={()=>copyOrApplyStyle(true)} className="toolbar-tool">Copy style</button>{styleCopied && <button title="Apply the saved formatting; it stays available for repeated use" onMouseDown={e=>e.preventDefault()} onClick={()=>copyOrApplyStyle(false)} className="toolbar-tool is-armed">Apply style</button>}<button title="Insert horizontal line" onMouseDown={e=>e.preventDefault()} onClick={()=>format('insertHorizontalRule')} className="toolbar-tool">― Line</button></div>
+      <label className={`toolbar-location-label toolbar-location-${orientation}`}  title="Choose where the Notes toolbar stays"><span>Toolbar</span><select aria-label="Toolbar location" value={toolbarPosition} onChange={e=>setToolbarPosition(e.target.value)}><option value="top">Top</option><option value="right">Right side</option><option value="both">Top + right</option></select></label>
+    </div>
+  }
+
 
   return <section className="notes-shell gloss-panel w-full rounded-3xl p-4 sm:p-6">
     <div className="mb-5 flex items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">Notes</h2><p className="text-xs text-neutral-500">A calm space for your thoughts and ideas</p></div><button onClick={createNote} className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white">＋ New note</button></div>
@@ -137,12 +250,21 @@ export default function Notes() {
       <div className="notes-resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize notes sidebar" onMouseDown={resizeSidebar}><span/></div>
       <div className="min-w-0 notes-main-pane">
         {trashView ? <div className="grid gap-4 xl:grid-cols-[minmax(250px,.8fr)_minmax(0,1.2fr)]"><div className="space-y-3"><h3 className="font-bold">Recently Deleted</h3><p className="text-xs text-neutral-400">Open an item to preview its contents before restoring or deleting it forever.</p>{trashFolders.map(f=><div key={f.id} className={`rounded-xl border p-3 ${trashPreview?.id===f.id?'border-violet-400 bg-violet-50/70':'bg-white/70'}`}><button onClick={()=>openTrashPreview('folder',f.id)} className="w-full truncate text-left text-sm font-semibold">📁 {f.name}</button><div className="mt-2 flex gap-3"><button onClick={()=>restoreFolder(f.id)} className="text-xs font-bold text-violet-600">Restore</button><button onClick={()=>permanentlyDeleteFolder(f.id)} className="text-xs text-rose-500">Delete forever</button></div></div>)}{trashNotes.map(n=><div key={n.id} className={`rounded-xl border p-3 ${trashPreview?.id===n.id?'border-violet-400 bg-violet-50/70':'bg-white/70'}`}><button onClick={()=>openTrashPreview('note',n.id)} className="w-full truncate text-left text-sm font-semibold">📝 {n.title || 'Untitled note'}</button><div className="mt-2 flex gap-3"><button onClick={()=>restoreNote(n.id)} className="text-xs font-bold text-violet-600">Restore</button><button onClick={()=>permanentlyDeleteNote(n.id)} className="text-xs text-rose-500">Delete forever</button></div></div>)}{!trashNotes.length&&!trashFolders.length&&<p className="rounded-xl border border-dashed p-8 text-center text-sm text-neutral-400">Trash is empty.</p>}</div><div className="trash-preview min-h-64">{previewNote ? <><div className="mb-2 flex items-center justify-between gap-2"><h4 className="font-bold">📝 {previewNote.title || 'Untitled note'}</h4><span className="text-[10px] text-neutral-400">Preview</span></div><p className="mb-4 text-xs text-neutral-400">Deleted {previewNote.deletedAt ? new Date(previewNote.deletedAt).toLocaleString() : ''}</p><div className="whitespace-pre-wrap break-words text-sm leading-7">{plain(previewNote.bodyHtml || previewNote.body || '') || 'This note is empty.'}</div></> : previewFolder ? <><h4 className="font-bold">📁 {previewFolder.name}</h4><p className="my-2 text-xs text-neutral-400">Folder contents</p><div className="space-y-3">{trashFolders.filter(f=>previewFolderIds.includes(f.id)&&f.id!==previewFolder.id).map(f=><div key={f.id} className="text-sm">📁 {f.name}</div>)}{trashNotes.filter(n=>previewFolderIds.includes(n.folderId)).map(n=><div key={n.id} className="rounded-xl bg-black/[.03] p-3"><div className="text-sm font-bold">📝 {n.title || 'Untitled note'}</div><p className="mt-1 whitespace-pre-wrap break-words text-xs leading-6 text-neutral-500">{plain(n.bodyHtml || n.body || '') || 'Empty note'}</p></div>)}{!trashFolders.some(f=>previewFolderIds.includes(f.id)&&f.id!==previewFolder.id)&&!trashNotes.some(n=>previewFolderIds.includes(n.folderId))&&<p className="text-sm text-neutral-400">This folder is empty.</p>}</div></> : <div className="flex h-full min-h-56 items-center justify-center text-center text-sm text-neutral-400">Choose a deleted note or folder to preview its contents.</div>}</div></div> : active ? <div className="notes-editor-card rounded-2xl border border-violet-100 bg-white/65 p-4">
-          <div className="mb-3 flex items-center justify-between gap-2"><button onClick={()=>setActiveId(null)} className="text-xs font-semibold text-violet-600">← All notes</button><div className="flex gap-2"><select aria-label="Move note to folder" value={active.folderId} onChange={e=>moveNote(active.id,e.target.value)} className="max-w-32 rounded-lg border bg-white px-2 py-1 text-xs"><option value="inbox">All notes</option>{liveFolders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select><button onClick={()=>setShowTags(v=>!v)} className="soft-button rounded-lg px-3 py-1.5 text-xs">🏷 Tags</button><button onClick={()=>trashNote(activeId)} className="rounded-lg px-2 py-1 text-xs text-rose-500">Delete</button></div></div>
-          <input value={active.title} onChange={e=>updateNote({title:e.target.value})} placeholder="Note title" className="mb-3 w-full bg-transparent text-xl font-bold outline-none"/>
-          <div className="notes-toolbar mb-3"><button title="Bold (Ctrl/Cmd+B)" onMouseDown={e=>e.preventDefault()} onClick={()=>format('bold')} className="toolbar-tool">B</button><button onMouseDown={e=>e.preventDefault()} onClick={()=>format('italic')} className="toolbar-tool italic">I</button><button onMouseDown={e=>e.preventDefault()} onClick={()=>format('strikeThrough')} className="toolbar-tool line-through">S</button><select aria-label="Text size" onChange={e=>format('formatBlock',e.target.value)} defaultValue="p" className="toolbar-tool"><option value="p">Normal</option><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option></select><span className="toolbar-divider"/><label title="Text color" className="toolbar-tool">A<input type="color" onChange={e=>format('foreColor',e.target.value)} className="h-6 w-6 cursor-pointer"/></label><label title="Highlight color" className="toolbar-tool">▰<input type="color" defaultValue="#FDE68A" onChange={e=>format('hiliteColor',e.target.value)} className="h-6 w-6 cursor-pointer"/></label><span className="toolbar-divider"/><div className="flex gap-1">{TEXT_COLORS.map((c,i)=><button key={c} title={`Text color ${i+1}`} onMouseDown={e=>e.preventDefault()} onClick={()=>format('foreColor',c)} className="h-5 w-5 rounded-full border border-black/10 shadow-sm" style={{backgroundColor:c}}/>)}</div><span className="toolbar-divider"/><div className="flex gap-1">{COLORS.map((c,i)=><button key={c} title={`Highlight ${i+1}`} onMouseDown={e=>e.preventDefault()} onClick={()=>format('hiliteColor',c)} className="h-5 w-5 rounded-lg border border-black/10 shadow-sm" style={{backgroundColor:c}}/>)}</div><span className="toolbar-divider"/><button onMouseDown={e=>e.preventDefault()} onClick={()=>format('insertHorizontalRule')} className="toolbar-tool">― Line</button></div>
+          <div className="mb-3 flex items-center justify-between gap-2"><button onClick={()=>setActiveId(null)} className="text-xs font-semibold text-violet-600">← All notes</button><div className="flex gap-2"><select aria-label="Move note to folder" value={active.folderId} onChange={e=>moveNote(active.id,e.target.value)} className="max-w-32 rounded-lg border bg-white px-2 py-1 text-xs"><option value="inbox">All notes</option>{liveFolders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select><button onClick={()=>trashNote(activeId)} className="rounded-lg px-2 py-1 text-xs text-rose-500">Delete</button></div></div>
+          <input value={active.title} onChange={e=>updateNote({title:e.target.value})} placeholder="Note title" className="mb-2 w-full bg-transparent text-xl font-bold outline-none"/>
+          <div className="notes-tags-top mb-3 flex flex-wrap items-center gap-2">
+            {(active.tagIds||[]).map(id=>tags.find(t=>t.id===id)).filter(Boolean).map(t=><span key={t.id} className="note-tag-chip rounded-full px-2.5 py-1 text-[11px] font-bold" style={{background:t.color,color:'#241b2e','--tag-dark':darkShade(t.color)}}>{t.name}</span>)}
+            <button onClick={()=>setShowTags(v=>!v)} className="notes-tag-edit-button rounded-lg border px-2.5 py-1 text-[11px] font-semibold">🏷 {showTags ? 'Done' : 'Edit tags'}</button>
+          </div>
           {showTags && <div className="mb-3 flex flex-wrap gap-2">{tags.length ? tags.map(t=><button key={t.id} onClick={()=>toggleTag(t.id)} className={`note-tag-picker-chip rounded-full border px-3 py-1 text-xs font-semibold ${(active.tagIds||[]).includes(t.id)?'is-selected':''}`} style={{background:(active.tagIds||[]).includes(t.id)?t.color:'transparent',borderColor:t.color,color:(active.tagIds||[]).includes(t.id)?'#241b2e':'inherit','--tag-dark':darkShade(t.color)}}>{t.name}</button>) : <span className="text-xs text-neutral-400">Create tags in Timer to use them here.</span>}</div>}
-          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={saveEditor} onKeyDown={keyShortcuts} onBlur={saveEditor} data-placeholder="Start writing…" className="notes-rich-editor min-h-[320px] w-full rounded-xl bg-transparent text-sm leading-7 outline-none" />
-          <div className="mt-3 flex flex-wrap gap-2">{(active.tagIds||[]).map(id=>tags.find(t=>t.id===id)).filter(Boolean).map(t=><span key={t.id} className="note-tag-chip rounded-full px-2.5 py-1 text-[11px] font-bold" style={{background:t.color,color:'#241b2e','--tag-dark':darkShade(t.color)}}>{t.name}</span>)}</div>
+          <div className={`notes-editor-layout toolbar-layout-${toolbarPosition}`}>
+            {toolbarPosition !== 'right' && renderToolbar('top')}
+            {toolbarPosition !== 'top' && renderToolbar('side')}
+            <div className="notes-editor-content">
+
+          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={saveEditor} onKeyDown={keyShortcuts} onClick={handleEditorClick} onBlur={saveEditor} data-placeholder="Start writing…" className="notes-rich-editor min-h-[320px] w-full rounded-xl bg-transparent text-sm leading-7 outline-none" />
+            </div>
+          </div>
         </div> : <div><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search notes…" className="mb-3 w-full rounded-xl border border-violet-100 bg-white/80 px-3 py-2 text-sm outline-none focus:border-violet-400"/><div className="space-y-2">{visibleNotes.length ? visibleNotes.map((n)=><div key={n.id} className="group flex items-start gap-2 rounded-xl border border-violet-100 bg-white/70 p-3"><span className="mt-0.5 shrink-0 text-base" aria-hidden="true">📄</span><button onClick={()=>setActiveId(n.id)} className="min-w-0 flex-1 text-left"><div className="break-words text-sm font-bold">{n.title || 'Untitled note'}</div><div className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs text-neutral-500">{plain(n.bodyHtml || n.body || '') || 'No additional text'}</div><div className="mt-2 text-[10px] text-neutral-400">{new Date(n.updatedAt).toLocaleString()}</div></button><div className="flex flex-col gap-1 opacity-50 group-hover:opacity-100"><button title="Move up" onClick={()=>shiftOrder('note',n.id,-1)} className="text-xs">↑</button><button title="Move down" onClick={()=>shiftOrder('note',n.id,1)} className="text-xs">↓</button></div></div>) : <div className="rounded-2xl border border-dashed border-violet-200 p-10 text-center"><div className="text-3xl">📝</div><p className="mt-2 text-sm font-semibold">No notes here yet</p><p className="mt-1 text-xs text-neutral-400">Create a note and it will appear here.</p><button onClick={createNote} className="mt-4 rounded-xl bg-violet-500 px-4 py-2 text-xs font-bold text-white">Create your first note</button></div>}</div></div>}
       </div>
     </div>
