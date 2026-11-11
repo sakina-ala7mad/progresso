@@ -462,7 +462,7 @@ button, input, select, textarea { touch-action: manipulation; }
 /* Keep the desktop layout familiar while giving phone users native-feeling
    bottom navigation, safe-area spacing, and comfortable touch targets. */
 .account-controls {
-  position:absolute;
+  position:fixed;
   z-index:61;
   top:4px;
   right:12px;
@@ -475,6 +475,7 @@ button, input, select, textarea { touch-action: manipulation; }
   color:#786c88;
   font-size:12px;
 }
+.authenticated-app { display:contents; }
 .account-signout {
   min-height:32px;
   border:0;
@@ -506,7 +507,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .app-header { padding-top:2px; }
   .app-brand { padding:8px 14px !important; font-size:13px !important; }
   .account-controls {
-    position:absolute;
+    position:fixed;
     z-index:61;
     top:max(5px,calc(env(safe-area-inset-top) + 3px));
     left:8px;
