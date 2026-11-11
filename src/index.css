@@ -501,11 +501,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .app-root {
     min-height:100vh;
     min-height:100dvh;
-    padding:12px 14px max(104px,calc(86px + env(safe-area-inset-bottom))) !important;
+    padding:4px 14px max(92px,calc(78px + env(safe-area-inset-bottom))) !important;
   }
   .app-root > div { gap:16px; }
-  .app-header { padding-top:2px; }
-  .app-brand { padding:8px 14px !important; font-size:13px !important; }
+  .app-header { padding-top:0; }
+  .app-brand { padding:6px 12px !important; font-size:13px !important; }
   .account-controls {
     position:fixed;
     z-index:61;
@@ -515,7 +515,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     min-height:42px;
     padding:0;
   }
-  .account-signout { min-height:36px; padding:6px 10px; }
+  .account-signout { min-height:44px; padding:8px 10px; }
   .sync-status {
     position:fixed;
     z-index:59;
@@ -543,12 +543,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     gap:2px !important;
     width:100%;
     margin:0 !important;
-    padding:7px 8px max(7px,env(safe-area-inset-bottom));
+    padding:4px 8px max(4px,env(safe-area-inset-bottom));
     border-top:1px solid rgba(147,119,178,.18);
     background:rgba(255,255,255,.94);
     box-shadow:0 -8px 28px rgba(39,24,58,.08);
-    -webkit-backdrop-filter:blur(18px);
-    backdrop-filter:blur(18px);
+    /* Avoid creating a containing block for the fixed theme control below. */
   }
   .dark-theme .app-navigation {
     border-color:rgba(204,184,232,.16);
@@ -558,7 +557,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .app-navigation > .mode-button:not(.theme-toggle) {
     display:flex;
     min-width:0;
-    min-height:56px;
+    min-height:52px;
     flex:initial;
     flex-direction:column;
     align-items:center;
