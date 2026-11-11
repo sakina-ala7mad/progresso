@@ -3,6 +3,21 @@ import { hasSupabaseConfig, supabase } from './supabaseClient'
 
 const LEGACY_KEYS = new Set(['focus-sessions', 'productivity-tags'])
 const isAppKey = (key) => key.startsWith('productivity_') || LEGACY_KEYS.has(key)
+const PENDING_SYNC_KEY = '__progresso_pending_sync_v1'
+const CACHE_READY_PREFIX = '__progresso_cloud_cache_v1:'
+
+function readPendingChanges() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(PENDING_SYNC_KEY) || '[]')
+    return new Map(Array.isArray(rows) ? rows : [])
+  } catch {
+    return new Map()
+  }
+}
+
+function savePendingChanges(changes) {
+  try { localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify([...changes.entries()])) } catch {}
+}
 
 function readLocalSnapshot() {
   const snapshot = {}
@@ -40,11 +55,17 @@ function countRows(snapshot) {
   }
 }
 
-function applyRemoteSnapshot(rows) {
+function applyRemoteSnapshot(rows, pending = new Map()) {
   const wanted = new Set(rows.map((row) => row.storage_key))
-  for (const row of rows) localStorage.setItem(row.storage_key, row.value)
+  for (const row of rows) {
+    if (!pending.has(row.storage_key)) localStorage.setItem(row.storage_key, row.value)
+  }
   for (const key of Object.keys(readLocalSnapshot())) {
-    if (!wanted.has(key)) localStorage.removeItem(key)
+    if (!wanted.has(key) && !pending.has(key)) localStorage.removeItem(key)
+  }
+  for (const [key, change] of pending) {
+    if (change.value === null) localStorage.removeItem(key)
+    else localStorage.setItem(key, change.value)
   }
   window.dispatchEvent(new Event('productivity:sessions-updated'))
 }
@@ -98,35 +119,10 @@ export default function AuthGate({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  useEffect(() => {
-    if (!userId || !supabase || initializedUser.current === userId) return
-    let cancelled = false
-    initializedUser.current = userId
-    setDataState('loading')
-    setError('')
-    fetchCloudRows(userId).then((rows) => {
-      if (cancelled) return
-      remoteValues.current = new Map(rows.map((row) => [row.storage_key, row.value]))
-      if (rows.length) {
-        applyRemoteSnapshot(rows)
-        setDataState('ready')
-      } else {
-        setCandidate(readLocalSnapshot())
-        setDataState('import')
-      }
-    }).catch((loadError) => {
-      if (cancelled) return
-      initializedUser.current = null
-      setError(`Could not load your cloud data: ${loadError.message}`)
-      setDataState('error')
-    })
-    return () => { cancelled = true }
-  }, [userId])
-
   const flushPending = useCallback(async () => {
-    if (!userId || !supabase || !pendingChanges.current.size) return
+    if (!userId || !supabase) return false
+    if (!pendingChanges.current.size) return true
     const changes = [...pendingChanges.current.entries()]
-    pendingChanges.current.clear()
     setSyncStatus('Syncing…')
     try {
       const changedRows = changes
@@ -148,13 +144,54 @@ export default function AuthGate({ children }) {
         if (deleteError) throw deleteError
         remoteValues.current.delete(storageKey)
       }
-      setSyncStatus('Synced')
+      for (const [key, change] of changes) {
+        if (pendingChanges.current.get(key) === change) pendingChanges.current.delete(key)
+      }
+      savePendingChanges(pendingChanges.current)
+      setSyncStatus(pendingChanges.current.size ? 'Syncing…' : 'Synced')
+      return true
     } catch (syncError) {
-      for (const [key, value] of changes) pendingChanges.current.set(key, value)
-      setSyncStatus('Waiting to sync')
-      setError(`Cloud sync paused; your changes remain on this device. ${syncError.message}`)
+      savePendingChanges(pendingChanges.current)
+      setSyncStatus(navigator.onLine ? 'Waiting to sync' : 'Offline · saved on this device')
+      return false
     }
   }, [userId])
+
+  useEffect(() => {
+    if (!userId || !supabase || initializedUser.current === userId) return
+    let cancelled = false
+    initializedUser.current = userId
+    setDataState('loading')
+    setError('')
+    pendingChanges.current = readPendingChanges()
+    fetchCloudRows(userId).then((rows) => {
+      if (cancelled) return
+      remoteValues.current = new Map(rows.map((row) => [row.storage_key, row.value]))
+      const pending = pendingChanges.current
+      if (rows.length || pending.size) {
+        applyRemoteSnapshot(rows, pending)
+        localStorage.setItem(`${CACHE_READY_PREFIX}${userId}`, '1')
+        setDataState('ready')
+        if (pending.size) void flushPending()
+      } else {
+        setCandidate(readLocalSnapshot())
+        setDataState('import')
+      }
+    }).catch((loadError) => {
+      if (cancelled) return
+      const hasCloudCache = localStorage.getItem(`${CACHE_READY_PREFIX}${userId}`) === '1'
+      if (hasCloudCache) {
+        pendingChanges.current = readPendingChanges()
+        setSyncStatus(navigator.onLine ? 'Waiting to sync' : 'Offline · saved on this device')
+        setDataState('ready')
+      } else {
+        initializedUser.current = null
+        setError(`Connect to the internet once to load your Progresso data. ${loadError.message}`)
+        setDataState('error')
+      }
+    })
+    return () => { cancelled = true }
+  }, [userId, flushPending])
 
   useEffect(() => {
     if (dataState !== 'ready' || !userId || !supabase) return undefined
@@ -163,6 +200,7 @@ export default function AuthGate({ children }) {
     const queueChange = (key, value) => {
       if (!isAppKey(key) || suppressLocalEvents.current) return
       pendingChanges.current.set(key, { value })
+      savePendingChanges(pendingChanges.current)
       setSyncStatus('Syncing…')
       if (syncTimer.current) clearTimeout(syncTimer.current)
       syncTimer.current = setTimeout(flushPending, 350)
@@ -179,6 +217,7 @@ export default function AuthGate({ children }) {
     }
     const receiveRemote = async () => {
       try {
+        if (!(await flushPending())) return
         const rows = await fetchCloudRows(userId)
         const next = new Map(rows.map((row) => [row.storage_key, row.value]))
         const previous = remoteValues.current
@@ -196,23 +235,29 @@ export default function AuthGate({ children }) {
         suppressLocalEvents.current = false
         remoteValues.current = next
         if (cloudChanged) setCloudVersion((version) => version + 1)
-        setSyncStatus('Synced')
+        localStorage.setItem(`${CACHE_READY_PREFIX}${userId}`, '1')
+        setSyncStatus(pendingChanges.current.size ? 'Syncing…' : 'Synced')
       } catch (syncError) {
         suppressLocalEvents.current = false
-        setSyncStatus('Waiting to sync')
-        setError(`Could not refresh cloud data. ${syncError.message}`)
+        setSyncStatus(navigator.onLine ? 'Waiting to sync' : 'Offline · saved on this device')
       }
     }
     const onStorage = (event) => {
       if (event.key && isAppKey(event.key)) queueChange(event.key, event.newValue)
     }
     const onFocus = () => { void receiveRemote() }
+    const onOnline = () => { void receiveRemote() }
+    const onOffline = () => setSyncStatus('Offline · saved on this device')
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', onFocus)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
     const poll = setInterval(() => { void receiveRemote() }, 15000)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('focus', onFocus)
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
       clearInterval(poll)
       if (syncTimer.current) clearTimeout(syncTimer.current)
       Storage.prototype.setItem = originalSet
@@ -269,6 +314,9 @@ export default function AuthGate({ children }) {
       const imported = rows.map((row) => ({ storage_key: row.storage_key, value: row.value }))
       remoteValues.current = new Map(imported.map((row) => [row.storage_key, row.value]))
       applyRemoteSnapshot(imported)
+      localStorage.setItem(`${CACHE_READY_PREFIX}${userId}`, '1')
+      pendingChanges.current = new Map()
+      savePendingChanges(pendingChanges.current)
       setDataState('ready')
       setSyncStatus('Synced')
     } catch (importError) {
@@ -334,9 +382,9 @@ export default function AuthGate({ children }) {
   }
 
   return <div>
-    <div className="flex items-center justify-between gap-3 border-b border-violet-100 bg-white/80 px-4 py-2 text-xs text-neutral-500">
-      <span className="truncate">{session.user.email} · {syncStatus}</span>
-      <button disabled={busy} onClick={signOut} className="shrink-0 rounded-lg px-2 py-1 font-bold text-violet-700">Sign out</button>
+    <div className="account-controls" aria-live="polite">
+      {syncStatus !== 'Synced' && <span className="sync-status">{syncStatus}</span>}
+      <button disabled={busy} onClick={signOut} className="account-signout">Sign out</button>
     </div>
     {error && <div role="status" className="bg-amber-50 px-4 py-2 text-center text-xs text-amber-800">{error}</div>}
     <div key={cloudVersion}>{children}</div>

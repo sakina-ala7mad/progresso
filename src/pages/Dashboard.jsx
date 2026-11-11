@@ -34,10 +34,15 @@ export default function Dashboard() {
       setSessions(readSessions())
       setNow(new Date())
     }
+    const refreshOnVisible = () => { if (document.visibilityState === 'visible') refresh() }
     window.addEventListener('storage', refresh)
-    const timer = window.setInterval(refresh, 1000)
+    window.addEventListener('productivity:sessions-updated', refresh)
+    document.addEventListener('visibilitychange', refreshOnVisible)
+    const timer = window.setInterval(refresh, 60000)
     return () => {
       window.removeEventListener('storage', refresh)
+      window.removeEventListener('productivity:sessions-updated', refresh)
+      document.removeEventListener('visibilitychange', refreshOnVisible)
       window.clearInterval(timer)
     }
   }, [])

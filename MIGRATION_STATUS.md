@@ -21,9 +21,22 @@ The original archive and browser exports were not modified.
 - The fresh browser export is stored separately from the app source.
 - The repository includes placeholder Tasks/Goals pages, but no data models
   or persisted records for those features.
-- Phone-specific styles let the page use the available width and normal page
-  scrolling; touch resizing handles are hidden on small screens. This still
-  needs a real phone check.
+- The app is live at `https://progresso-gray.vercel.app` and Supabase Auth is
+  configured to return to that site.
+- Mobile uses a five-tab bottom navigation, safe-area spacing, larger touch
+  targets, and full-width page panels; desktop keeps its existing navigation.
+- The email/always-synced banner has been removed. Sync status appears only
+  when syncing is pending or the app is offline.
+- The timer now redraws once per second and checkpoints every ten seconds;
+  dashboard charts no longer refresh every second.
+- The dashboard, habits, and notes pages load on demand. The production build
+  completes without a large-bundle warning.
+- A service worker caches the app and its page bundles for offline opening.
+  After a successful sign-in and first cloud load, edits stay on this device
+  while offline and are queued for cloud sync when the connection returns.
+  First sign-in and the first data load still require internet.
+- The iPhone 14 Plus layout and offline behavior still need confirmation on
+  the user's physical phone.
 
 ## Records represented by the schema
 
@@ -46,10 +59,8 @@ shared workspace, membership, or invitation feature in scope.
 
 ## Remaining migration work
 
-1. Check the layout and touch behavior on a real phone.
-2. Publish the working copy through a hosting service, then set its public URL
-   in the Supabase Auth redirect settings so sign-in works from the phone.
-3. Verify the hosted app and cross-device sync.
+1. Check the refreshed layout and offline behavior on the iPhone 14 Plus.
+2. Reconfirm sign-in and cloud sync from that device after the new deployment.
 
 Do not put a Supabase secret/service key in browser code. Browser access should
 use a public client key with authenticated sessions and the row-level rules

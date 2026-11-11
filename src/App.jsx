@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import Dashboard from './pages/Dashboard'
-import Habits from './pages/Habits'
-import Notes from './pages/Notes'
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import AuthGate from './lib/AuthGate'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Habits = lazy(() => import('./pages/Habits'))
+const Notes = lazy(() => import('./pages/Notes'))
 
 const TAGS_KEY = 'productivity_timer_tags_v1'
 const SESSIONS_KEY = 'productivity_timer_sessions_v1'
@@ -92,6 +93,17 @@ function getNormalCompletionInfo(elapsedSeconds) {
 
 function normalizeTags(tags) {
   return Array.isArray(tags) && tags.length ? tags : DEFAULT_TAGS
+}
+
+function NavigationIcon({ kind }) {
+  const shape = {
+    dashboard: <><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></>,
+    timer: <><circle cx="12" cy="13" r="8" /><path d="M12 9v4l3 2M10 2h4M12 2v3" /></>,
+    history: <><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
+    habits: <><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><path d="m7.5 12 3 3 6-6" /></>,
+    notes: <><path d="M7 3.5h7l4 4v13H7z" /><path d="M14 3.5v5h4M10 13h5M10 17h5" /></>,
+  }[kind]
+  return <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shape}</svg>
 }
 
 // One-time cleanup for older data: sessions under 5 minutes should not exist
@@ -199,6 +211,7 @@ function ProductivityApp() {
   const [completionInfo, setCompletionInfo] = useState({ title: 'Timer finished!', message: 'You did it! Take a breath and enjoy your little win.', emoji: '🎉' })
 
   const intervalRef = useRef(null)
+  const lastCheckpointSavedAtRef = useRef(0)
   const modeRef = useRef(mode)
   const secondsRef = useRef(seconds)
   const selectedTagRef = useRef(selectedTagId)
@@ -322,8 +335,10 @@ function ProductivityApp() {
     setOverlay(null)
   }
 
-  function saveActiveCheckpoint() {
+  function saveActiveCheckpoint(force = false) {
     if (!runningRef.current && !pausedRef.current) return
+    const now = Date.now()
+    if (!force && now - lastCheckpointSavedAtRef.current < 10000) return
     writeStorage(TIMER_STATE_KEY, buildTimerSnapshot({
       mode: modeRef.current,
       running: runningRef.current,
@@ -341,6 +356,7 @@ function ProductivityApp() {
       pomodoroBreak: pomodoroBreakRef.current,
       countdownInput: timeInputRef.current,
     }))
+    lastCheckpointSavedAtRef.current = now
   }
 
   function clearActiveCheckpoint() {
@@ -389,7 +405,7 @@ function ProductivityApp() {
   function startTicker() {
     stopInterval()
     if (!segmentStartedAtRef.current) segmentStartedAtRef.current = Date.now()
-    intervalRef.current = setInterval(updateLiveDisplay, 100)
+    intervalRef.current = setInterval(updateLiveDisplay, 1000)
     updateLiveDisplay()
   }
 
@@ -410,7 +426,7 @@ function ProductivityApp() {
     setPaused(false)
     runningRef.current = true
     pausedRef.current = false
-    saveActiveCheckpoint()
+    saveActiveCheckpoint(true)
     startTicker()
   }
 
@@ -594,7 +610,7 @@ function ProductivityApp() {
     setPaused(true)
     runningRef.current = true
     pausedRef.current = true
-    saveActiveCheckpoint()
+    saveActiveCheckpoint(true)
     setOverlay('paused')
   }
 
@@ -606,7 +622,7 @@ function ProductivityApp() {
     setRunning(true)
     runningRef.current = true
     segmentStartedAtRef.current = Date.now()
-    saveActiveCheckpoint()
+    saveActiveCheckpoint(true)
     startTicker()
   }
 
@@ -824,26 +840,26 @@ function ProductivityApp() {
     <main className={`app-root min-h-screen px-4 py-8 sm:px-6 ${darkMode ? 'dark-theme' : 'bg-[radial-gradient(circle_at_top,#ffffff_0%,#fbf9ff_44%,#f7f4fb_100%)] text-black'}`}>
       <audio ref={alarmAudioRef} src="/timer-notification.mp3" preload="auto" />
       <div className="mx-auto flex w-full max-w-none flex-col items-stretch gap-5">
-        <header className="w-full max-w-none text-center">
-          <div className="inline-flex rounded-xl border border-violet-200/80 bg-white/75 px-4 py-2 text-sm font-bold tracking-tight shadow-sm backdrop-blur">
+        <header className="app-header w-full max-w-none text-center">
+          <div className="app-brand inline-flex rounded-xl border border-violet-200/80 bg-white/75 px-4 py-2 text-sm font-bold tracking-tight shadow-sm backdrop-blur">
             Time Tracker
           </div>
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button className={`mode-button ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>Dashboard</button>
-            <button className={`mode-button ${page === 'timer' ? 'active' : ''}`} onClick={() => setPage('timer')}>Timer</button>
-            <button className={`mode-button ${page === 'history' ? 'active' : ''}`} onClick={() => { setPage('history'); refreshHistory() }}>History</button>
-            <button className={`mode-button ${page === 'habits' ? 'active' : ''}`} onClick={() => setPage('habits')}>Habits</button>
-            <button className={`mode-button ${page === 'notes' ? 'active' : ''}`} onClick={() => setPage('notes')}>Notes</button>
-            <button className="mode-button" onClick={() => setDarkMode(v => !v)} aria-label="Toggle dark mode">{darkMode ? '☀️ Light' : '🌙 Dark'}</button>
-          </div>
+          <nav className="app-navigation mt-3 flex flex-wrap justify-center gap-2" aria-label="Main navigation">
+            <button className={`mode-button ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')} aria-current={page === 'dashboard' ? 'page' : undefined}><span className="mobile-nav-icon"><NavigationIcon kind="dashboard" /></span><span>Dashboard</span></button>
+            <button className={`mode-button ${page === 'timer' ? 'active' : ''}`} onClick={() => setPage('timer')} aria-current={page === 'timer' ? 'page' : undefined}><span className="mobile-nav-icon"><NavigationIcon kind="timer" /></span><span>Timer</span></button>
+            <button className={`mode-button ${page === 'history' ? 'active' : ''}`} onClick={() => { setPage('history'); refreshHistory() }} aria-current={page === 'history' ? 'page' : undefined}><span className="mobile-nav-icon"><NavigationIcon kind="history" /></span><span>History</span></button>
+            <button className={`mode-button ${page === 'habits' ? 'active' : ''}`} onClick={() => setPage('habits')} aria-current={page === 'habits' ? 'page' : undefined}><span className="mobile-nav-icon"><NavigationIcon kind="habits" /></span><span>Habits</span></button>
+            <button className={`mode-button ${page === 'notes' ? 'active' : ''}`} onClick={() => setPage('notes')} aria-current={page === 'notes' ? 'page' : undefined}><span className="mobile-nav-icon"><NavigationIcon kind="notes" /></span><span>Notes</span></button>
+            <button className="mode-button theme-toggle" onClick={() => setDarkMode(v => !v)} aria-label="Toggle dark mode"><span className="mobile-theme-icon" aria-hidden="true">{darkMode ? '☀️' : '🌙'}</span><span className="desktop-theme-label">{darkMode ? '☀️ Light' : '🌙 Dark'}</span></button>
+          </nav>
         </header>
 
         {page === 'dashboard' ? (
-          <ResizablePage key="dashboard" page="dashboard"><Dashboard /></ResizablePage>
+          <ResizablePage key="dashboard" page="dashboard"><Suspense fallback={<PageLoading page="Dashboard" />}><Dashboard /></Suspense></ResizablePage>
         ) : page === 'habits' ? (
-          <ResizablePage key="habits" page="habits"><Habits /></ResizablePage>
+          <ResizablePage key="habits" page="habits"><Suspense fallback={<PageLoading page="Habits" />}><Habits /></Suspense></ResizablePage>
         ) : page === 'notes' ? (
-          <ResizablePage key="notes" page="notes"><Notes /></ResizablePage>
+          <ResizablePage key="notes" page="notes"><Suspense fallback={<PageLoading page="Notes" />}><Notes /></Suspense></ResizablePage>
         ) : page === 'timer' ? (
           <ResizablePage key="timer" page="timer"><section className="timer-panel gloss-panel w-full max-w-none rounded-3xl p-5 sm:p-7">
             <div className="mb-3 flex items-center justify-end">
@@ -944,6 +960,10 @@ function ProductivityApp() {
       </div>}
     </main>
   )
+}
+
+function PageLoading({ page }) {
+  return <div className="gloss-panel flex min-h-48 items-center justify-center rounded-3xl p-6 text-sm font-semibold text-violet-700" role="status">Opening {page.toLowerCase()}…</div>
 }
 
 function ResizablePage({ page, children }) {

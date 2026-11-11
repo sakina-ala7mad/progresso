@@ -9,12 +9,12 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
-
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #faf9fc; }
 #root { min-height: 100vh; width: 100%; }
 button, input { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { touch-action: manipulation; }
 
 .gloss-panel {
   background: linear-gradient(145deg, rgba(255,255,255,.97), rgba(247,243,255,.94));
@@ -459,26 +459,191 @@ button { -webkit-tap-highlight-color: transparent; }
   min-width: 0;
 }
 
-/* On phones, let each page use the full screen width and normal page scrolling.
-   Resizing remains available on larger screens; touch screens keep their space
-   for scrolling and tapping. */
-@media (max-width: 760px) {
-  body { overflow-x: hidden; }
-  .app-root { padding: 16px 12px max(16px, env(safe-area-inset-bottom)) !important; }
-  .app-root > div { gap: 14px; }
-  .page-resizable {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    margin-bottom: 10px;
-    overflow: visible;
-    border-radius: 18px;
+/* Keep the desktop layout familiar while giving phone users native-feeling
+   bottom navigation, safe-area spacing, and comfortable touch targets. */
+.account-controls {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  min-height:28px;
+  padding:2px 12px;
+  color:#786c88;
+  font-size:12px;
+}
+.account-signout {
+  min-height:32px;
+  border:0;
+  border-radius:9px;
+  padding:5px 9px;
+  background:transparent;
+  color:#7351a4;
+  font-size:12px;
+  font-weight:700;
+}
+.account-signout:hover { background:rgba(139,92,246,.08); }
+.sync-status { font-weight:600; }
+.mobile-nav-icon,.mobile-theme-icon { display:none; }
+.app-navigation .mode-button { min-height:42px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline:3px solid rgba(139,92,246,.55);
+  outline-offset:2px;
+}
+
+@media (max-width:760px) {
+  body { min-height:100%; overflow-x:hidden; }
+  #root { min-height:100vh; min-height:100dvh; }
+  .app-root {
+    min-height:100vh;
+    min-height:100dvh;
+    padding:12px 14px max(104px,calc(86px + env(safe-area-inset-bottom))) !important;
   }
-  .page-resize-handle, .page-resize-reset { display: none !important; }
-  .mode-button { min-height: 42px; }
-  .notes-editor-card { min-height: 60vh !important; }
-  .notes-rich-editor { min-height: 48vh !important; }
+  .app-root > div { gap:16px; }
+  .app-header { padding-top:2px; }
+  .app-brand { padding:8px 14px !important; font-size:13px !important; }
+  .account-controls {
+    position:absolute;
+    z-index:61;
+    top:max(5px,calc(env(safe-area-inset-top) + 3px));
+    left:8px;
+    min-height:42px;
+    padding:0;
+  }
+  .account-signout { min-height:36px; padding:6px 10px; }
+  .sync-status {
+    position:fixed;
+    z-index:59;
+    bottom:calc(82px + env(safe-area-inset-bottom));
+    left:50%;
+    max-width:calc(100vw - 40px);
+    transform:translateX(-50%);
+    border:1px solid rgba(147,119,178,.16);
+    border-radius:999px;
+    padding:7px 12px;
+    background:rgba(255,255,255,.94);
+    box-shadow:0 4px 16px rgba(39,24,58,.1);
+    font-size:11px;
+    white-space:nowrap;
+  }
+  .dark-theme .sync-status { background:rgba(38,34,51,.96); color:#e5daef; }
+  .app-navigation {
+    position:fixed;
+    z-index:60;
+    right:0;
+    bottom:0;
+    left:0;
+    display:grid !important;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:2px !important;
+    width:100%;
+    margin:0 !important;
+    padding:7px 8px max(7px,env(safe-area-inset-bottom));
+    border-top:1px solid rgba(147,119,178,.18);
+    background:rgba(255,255,255,.94);
+    box-shadow:0 -8px 28px rgba(39,24,58,.08);
+    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(18px);
+  }
+  .dark-theme .app-navigation {
+    border-color:rgba(204,184,232,.16);
+    background:rgba(30,27,40,.94);
+    box-shadow:0 -8px 28px rgba(0,0,0,.24);
+  }
+  .app-navigation > .mode-button:not(.theme-toggle) {
+    display:flex;
+    min-width:0;
+    min-height:56px;
+    flex:initial;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    border:0;
+    border-radius:14px;
+    padding:5px 2px;
+    background:transparent;
+    box-shadow:none;
+    color:#756b82;
+    font-size:10px;
+    line-height:1.15;
+    white-space:nowrap;
+  }
+  .app-navigation > .mode-button.active:not(.theme-toggle) {
+    background:#f0e9fb;
+    color:#67419b;
+    box-shadow:inset 0 0 0 1px rgba(139,92,246,.12);
+  }
+  .dark-theme .app-navigation > .mode-button:not(.theme-toggle) { color:#c8bfd6; }
+  .dark-theme .app-navigation > .mode-button.active:not(.theme-toggle) { background:#403550; color:#eadcff; }
+  .mobile-nav-icon { display:block; font-size:21px; line-height:1; font-weight:700; }
+  .app-navigation > .theme-toggle {
+    position:fixed;
+    top:max(8px,calc(env(safe-area-inset-top) + 6px));
+    right:14px;
+    display:grid;
+    width:42px;
+    min-width:42px;
+    min-height:42px;
+    place-items:center;
+    flex:initial;
+    border-radius:50%;
+    padding:0;
+    font-size:0;
+    box-shadow:0 2px 9px rgba(50,35,70,.1);
+  }
+  .mobile-theme-icon { display:inline; font-size:18px; }
+  .desktop-theme-label { display:none; }
+  .page-resizable {
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    margin:0 auto 8px;
+    overflow:visible;
+    border-radius:20px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .page-resize-handle,.page-resize-reset { display:none !important; }
+  .mode-button { min-height:44px; }
+  .gloss-panel,.habit-card { box-shadow:0 8px 24px rgba(70,48,110,.09),0 2px 7px rgba(70,48,110,.04); }
+  .notes-editor-card { min-height:60vh !important; }
+  .notes-rich-editor { min-height:48vh !important; }
+  .notes-workspace-grid { gap:12px !important; }
+  .notes-workspace-grid > .notes-sidebar { max-height:30vh !important; }
+  .toolbar-layout-right,.toolbar-layout-both { grid-template-columns:minmax(0,1fr) !important; }
+  .toolbar-layout-right .notes-toolbar-side,
+  .toolbar-layout-both .notes-toolbar-side {
+    grid-column:1 !important;
+    grid-row:1 !important;
+    width:100% !important;
+    min-width:0 !important;
+    max-height:none !important;
+    flex-direction:row !important;
+    flex-wrap:wrap !important;
+    align-items:center !important;
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+  .toolbar-layout-right .notes-editor-content,
+  .toolbar-layout-both .notes-editor-content { grid-column:1 !important; grid-row:2 !important; }
+  .toolbar-layout-both .notes-toolbar-top { grid-column:1 !important; grid-row:1 !important; }
+  .app-root input:not([aria-label="Countdown time"]),.app-root select,.app-root textarea { font-size:16px; }
+  .app-root input[aria-label="Countdown time"] { font-size:clamp(2.65rem,12vw,3.5rem); }
+  input[type="email"],input[type="password"] { font-size:16px; }
+  .app-root button { touch-action:manipulation; }
+}
+
+@media (hover:none) {
+  .habit-card:hover,.tag-chip:hover { transform:none; }
+  .soft-button:hover { box-shadow:0 2px 7px rgba(0,0,0,.07),inset 0 1px 0 rgba(255,255,255,.9); }
+  .soft-button:active,.mode-button:active { transform:scale(.98); }
+}
+
+@media (hover:hover) and (pointer:fine) {
+  .mode-button:hover { transform:translateY(-1px); }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { scroll-behavior:auto !important; transition-duration:.01ms !important; }
 }
