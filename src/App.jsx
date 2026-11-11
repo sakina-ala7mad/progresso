@@ -191,7 +191,11 @@ function ProductivityApp() {
   useEffect(() => { writeStorage('productivity_dark_mode_v1', darkMode) }, [darkMode])
   useEffect(() => {
     const themeColor = document.querySelector('meta[name="theme-color"]')
-    if (themeColor) themeColor.setAttribute('content', darkMode ? '#171521' : '#faf9fc')
+    const pageColor = darkMode ? '#171521' : '#faf9fc'
+    if (themeColor) themeColor.setAttribute('content', pageColor)
+    document.documentElement.style.backgroundColor = pageColor
+    document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light'
+    document.body.style.backgroundColor = pageColor
   }, [darkMode])
   const [mode, setMode] = useState('countdown')
   const [tags, setTags] = useState(() => normalizeTags(readStorage(TAGS_KEY, DEFAULT_TAGS)))
