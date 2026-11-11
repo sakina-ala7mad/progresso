@@ -189,6 +189,10 @@ function ProductivityApp() {
   }, [page])
   const [darkMode, setDarkMode] = useState(() => readStorage('productivity_dark_mode_v1', false))
   useEffect(() => { writeStorage('productivity_dark_mode_v1', darkMode) }, [darkMode])
+  useEffect(() => {
+    const themeColor = document.querySelector('meta[name="theme-color"]')
+    if (themeColor) themeColor.setAttribute('content', darkMode ? '#171521' : '#faf9fc')
+  }, [darkMode])
   const [mode, setMode] = useState('countdown')
   const [tags, setTags] = useState(() => normalizeTags(readStorage(TAGS_KEY, DEFAULT_TAGS)))
   const [selectedTagId, setSelectedTagId] = useState(() => normalizeTags(readStorage(TAGS_KEY, DEFAULT_TAGS))[0].id)
