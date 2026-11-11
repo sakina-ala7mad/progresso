@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Dashboard from './pages/Dashboard'
 import Habits from './pages/Habits'
 import Notes from './pages/Notes'
+import AuthGate from './lib/AuthGate'
 
 const TAGS_KEY = 'productivity_timer_tags_v1'
 const SESSIONS_KEY = 'productivity_timer_sessions_v1'
@@ -166,8 +167,14 @@ function buildTimerSnapshot({
   }
 }
 
-function App() {
-  const [page, setPage] = useState('timer')
+function ProductivityApp() {
+  const [page, setPage] = useState(() => {
+    try { return sessionStorage.getItem('productivity_current_page') || 'timer' }
+    catch { return 'timer' }
+  })
+  useEffect(() => {
+    try { sessionStorage.setItem('productivity_current_page', page) } catch {}
+  }, [page])
   const [darkMode, setDarkMode] = useState(() => readStorage('productivity_dark_mode_v1', false))
   useEffect(() => { writeStorage('productivity_dark_mode_v1', darkMode) }, [darkMode])
   const [mode, setMode] = useState('countdown')
@@ -1022,4 +1029,6 @@ function Modal({ title, onClose, children }) {
   return <div className="app-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-label={title}><div className="app-modal-card w-full max-w-sm rounded-[1.6rem] border p-5 shadow-2xl"><div className="mb-4 flex items-center justify-between gap-4"><h2 className="text-lg font-bold">{title}</h2><button onClick={onClose} aria-label="Close" className="modal-close rounded-xl px-2.5 py-1 text-sm">×</button></div>{children}</div></div>
 }
 
-export default App
+export default function App() {
+  return <AuthGate><ProductivityApp /></AuthGate>
+}
