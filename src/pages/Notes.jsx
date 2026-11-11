@@ -213,7 +213,7 @@ export default function Notes() {
         <button title="Delete folder" aria-label={`Delete ${folder.name}`} onClick={()=>trashFolder(folder.id)} className="notes-tree-delete"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6h11M8 6V4.5h4V6m-6 0 .7 9.2h6.6L14 6M8.3 8.5v4.8m3.4-4.8v4.8"/></svg></button>
       </div>
       {expanded && <div className="notes-tree-children">
-        {notes.map(n=><button key={n.id} onClick={()=>{setFolderId(folder.id);setActiveId(n.id);setTrashView(false)}} className={`notes-tree-file ${activeId===n.id?'is-active':''}`} style={{paddingLeft: 31 + depth * 15}} title={n.title || 'Untitled note'}><OutlineIcon type="file"/><span className="notes-tree-name">{n.title || 'Untitled note'}</span></button>)}
+        {notes.map(n=><button key={n.id} onClick={()=>{setFolderId(folder.id);setActiveId(n.id);setTrashView(false)}} className={`notes-tree-file ${activeId===n.id?'is-active':''}`} style={{'--tree-depth': depth}} title={n.title || 'Untitled note'}><OutlineIcon type="file"/><span className="notes-tree-name">{n.title || 'Untitled note'}</span></button>)}
         {children.map(child=>renderFolder(child,depth+1))}
       </div>}
     </div>
@@ -243,7 +243,7 @@ export default function Notes() {
         {showNewFolder && <div className="mb-3 flex gap-1"><input autoFocus value={folderName} onChange={e=>setFolderName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&createFolder()} placeholder="Folder name" className="min-w-0 w-full rounded-lg border px-2 py-1 text-xs"/><button onClick={createFolder} className="rounded-lg bg-violet-500 px-2 text-xs text-white">Add</button></div>}
         <button onClick={()=>{setFolderId('inbox');setTrashView(false);setActiveId(null)}} className={`mb-1 w-full rounded-lg px-3 py-2 text-left text-sm ${folderId==='inbox'&&!trashView?'bg-violet-100 font-bold text-violet-700':'text-neutral-600 hover:bg-violet-50'}`}>All notes <span className="float-right text-xs opacity-60">{liveNotes.length}</span></button>
         {liveFolders.filter(f=>!f.parentId).sort((a,b)=>(a.order??0)-(b.order??0)).map(f=>renderFolder(f))}
-        {liveNotes.filter(n=>!n.folderId || n.folderId==='inbox').map(n=><button key={n.id} onClick={()=>{setFolderId('inbox');setActiveId(n.id);setTrashView(false)}} className={`notes-tree-file ${activeId===n.id?'is-active':''}`} title={n.title || 'Untitled note'}><OutlineIcon type="file"/><span className="notes-tree-name">{n.title || 'Untitled note'}</span></button>)}
+        {liveNotes.filter(n=>!n.folderId || n.folderId==='inbox').map(n=><button key={n.id} onClick={()=>{setFolderId('inbox');setActiveId(n.id);setTrashView(false)}} className={`notes-tree-file ${activeId===n.id?'is-active':''}`} style={{'--tree-depth': 0}} title={n.title || 'Untitled note'}><OutlineIcon type="file"/><span className="notes-tree-name">{n.title || 'Untitled note'}</span></button>)}
         <button onClick={()=>{setTrashView(true);setActiveId(null)}} className={`mt-4 w-full rounded-lg px-3 py-2 text-left text-sm ${trashView?'bg-rose-50 font-bold text-rose-600':'text-neutral-500 hover:bg-rose-50'}`}>🗑 Recently Deleted <span className="float-right text-xs">{trashNotes.length+trashFolders.length}</span></button>
         <p className="mt-5 text-[11px] leading-5 text-neutral-400">Notes save automatically on this device.</p>
       </aside>

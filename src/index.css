@@ -447,3 +447,13 @@ button { -webkit-tap-highlight-color: transparent; }
 .notes-tag-edit-button { border-color:#ded3ed!important; color:#705b88; background:rgba(255,255,255,.65); }
 .dark-theme .notes-tag-edit-button { border-color:#625474!important; color:#e4d8f2; background:#302a3d; }
 /* Each route gets a fresh ResizablePage instance (keyed by page) and its own saved dimensions. */
+
+
+/* Keep files visually nested beneath their parent folder. The shared tree-row
+   padding shorthand uses !important, so explicitly override it for file rows. */
+.notes-tree-file {
+  padding-left: calc(31px + (var(--tree-depth, 0) * 15px)) !important;
+}
+.notes-tree-children {
+  min-width: 0;
+}
