@@ -381,7 +381,7 @@ export default function AuthGate({ children }) {
     </div>
   }
 
-  return <div>
+  return <div className="authenticated-app">
     <div className="account-controls" aria-live="polite">
       {syncStatus !== 'Synced' && <span className="sync-status">{syncStatus}</span>}
       <button disabled={busy} onClick={signOut} className="account-signout">Sign out</button>

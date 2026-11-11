@@ -462,6 +462,10 @@ button, input, select, textarea { touch-action: manipulation; }
 /* Keep the desktop layout familiar while giving phone users native-feeling
    bottom navigation, safe-area spacing, and comfortable touch targets. */
 .account-controls {
+  position:absolute;
+  z-index:61;
+  top:4px;
+  right:12px;
   display:flex;
   align-items:center;
   justify-content:flex-end;
@@ -506,6 +510,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     z-index:61;
     top:max(5px,calc(env(safe-area-inset-top) + 3px));
     left:8px;
+    right:auto;
     min-height:42px;
     padding:0;
   }
